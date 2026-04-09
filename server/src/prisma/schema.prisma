@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubjectCategory {
+  MATH
+  SCIENCE
+  ENGLISH
+  HISTORY
+  WORLD_LANGUAGE
+  ELECTIVE
+  AP
+  OTHER
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RequestStatus {
+  OPEN
+  MATCHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+  NO_SHOW
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+enum NotificationType {
+  NEW_REQUEST
+  MATCH_ACCEPTED
+  MATCH_DECLINED
+  SESSION_CONFIRMED
+  SESSION_REMINDER
+  HOUR_MILESTONE
+  REQUEST_CANCELLED
+  NEW_MESSAGE
+  TUTOR_APPROVED
+  TUTOR_REJECTED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                   String   @id @default(cuid())
+  clerkId              String   @unique
+  email                String   @unique
+  firstName            String
+  lastName             String
+  grade                Int
+  role                 UserRole @default(STUDENT)
+  bio                  String?
+  avatarUrl            String?
+  phone                String?
+  isTutor              Boolean  @default(false)
+  notificationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tutorSubjects       TutorSubject[]
+  requestsMade        TutoringRequest[]    @relation("Requester")
+  matchesAsTutor      Match[]              @relation("Tutor")
+  volunteerHours      VolunteerHourLog[]
+  reviewsGiven        Review[]             @relation("Reviewer")
+  notifications       Notification[]
+  messagesSent        Message[]
+  tutorVerifications  TutorVerification[]  @relation("Applicant")
+  verificationsReviewed TutorVerification[] @relation("Reviewer")
+  appFeedback         AppFeedback[]
+}
+
+model AppFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TutorVerification {
+  id           String             @id @default(cuid())
+  userId       String
+  subjectId    String
+  evidenceType String             // "grades" | "skyward" | "screenshot" | "other"
+  evidenceNote String             // freeform explanation
+  evidenceUrl  String?            // optional uploaded file URL or screenshot description
+  gpaOrGrade   String?            // e.g. "A", "95", "4.2 GPA"
+  status       VerificationStatus @default(PENDING)
+  reviewedBy   String?
+  reviewNote   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user     User    @relation("Applicant", fields: [userId], references: [id], onDelete: Cascade)
+  subject  Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  reviewer User?   @relation("Reviewer", fields: [reviewedBy], references: [id])
+}
+
+model Subject {
+  id       String          @id @default(cuid())
+  name     String          @unique
+  category SubjectCategory
+
+  tutorSubjects       TutorSubject[]
+  tutoringRequests    TutoringRequest[]
+  tutorVerifications  TutorVerification[]
+}
+
+model TutorSubject {
+  id              String   @id @default(cuid())
+  userId          String
+  subjectId       String
+  selfRating      Int      @default(3)
+  teacherEndorsed Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subjectId])
+}
+
+model TutoringRequest {
+  id          String        @id @default(cuid())
+  requesterId String
+  subjectId   String
+  description String
+  urgency     Urgency       @default(MEDIUM)
+  status      RequestStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  requester User    @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  matches   Match[]
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  requestId   String
+  tutorId     String
+  status      MatchStatus @default(PENDING)
+  scheduledAt DateTime?
+  location    String?
+  meetingUrl  String?     // Jitsi Meet link auto-generated on accept
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  request  TutoringRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tutor    User            @relation("Tutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  sessions Session[]
+  messages Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  matchId   String
+  senderId  String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id                    String    @id @default(cuid())
+  matchId               String
+  date                  DateTime  @db.Date
+  startTime             DateTime
+  endTime               DateTime
+  durationMinutes       Int
+  actualDurationMinutes Int?      // logged by tutor after session — may differ from scheduled
+  notes                 String?
+  tutorConfirmed        Boolean   @default(false)
+  tuteeConfirmed        Boolean   @default(false)
+  confirmCode           String?   // 4-digit code shown to logger; other party enters to confirm
+  expiresAt             DateTime? // auto-expire if unconfirmed for 7 days
+  createdAt             DateTime  @default(now())
+
+  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  reviews Review[]
+}
+
+model VolunteerHourLog {
+  id            String    @id @default(cuid())
+  userId        String
+  totalMinutes  Int       @default(0)
+  period        String
+  lastUpdatedAt DateTime  @updatedAt
+  exportedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  sessionId  String
+  reviewerId String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reviewer User    @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, reviewerId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  read      Boolean          @default(false)
+  linkTo    String?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
