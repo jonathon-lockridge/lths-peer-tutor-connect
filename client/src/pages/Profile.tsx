@@ -259,7 +259,8 @@ function TutorVerificationForm({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", {
+      const apiBase = (import.meta.env.VITE_API_URL ?? "") + "/api";
+      const res = await fetch(`${apiBase}/upload`, {
         method: "POST",
         body: formData,
         credentials: "include",

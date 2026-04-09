@@ -51,93 +51,22 @@ const SUBJECTS: { name: string; category: SubjectCategory }[] = [
   { name: "Music Theory", category: "ELECTIVE" },
 ];
 
-const DEMO_STUDENTS = [
-  { firstName: "Example", lastName: "Tutor", grade: 11, bio: "This is a demo tutor account to show how the app looks. Real tutors will appear here once students sign up." },
-];
-
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Clear old demo data
+  // Remove any leftover demo accounts
   await prisma.user.deleteMany({
     where: { email: { startsWith: "demo" } },
   });
 
   // Subjects
   console.log("Creating subjects...");
-  const subjectMap: Record<string, string> = {};
   for (const s of SUBJECTS) {
-    const subject = await prisma.subject.upsert({
+    await prisma.subject.upsert({
       where: { name: s.name },
       update: {},
       create: s,
     });
-    subjectMap[s.name] = subject.id;
-  }
-
-  // Demo students
-  console.log("Creating demo tutor...");
-  const userIds: string[] = [];
-  for (let i = 0; i < DEMO_STUDENTS.length; i++) {
-    const s = DEMO_STUDENTS[i];
-    const user = await prisma.user.upsert({
-      where: { email: `demo${i + 1}@ltisdschools.org` },
-      update: {},
-      create: {
-        clerkId: `demo_clerk_${i + 1}`,
-        email: `demo${i + 1}@ltisdschools.org`,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        grade: s.grade,
-        role: "STUDENT",
-        bio: s.bio,
-        isTutor: true,
-      },
-    });
-    userIds.push(user.id);
-  }
-
-  // Admin user
-  await prisma.user.upsert({
-    where: { email: "admin@ltisdschools.org" },
-    update: {},
-    create: {
-      clerkId: "admin_clerk_1",
-      email: "admin@ltisdschools.org",
-      firstName: "Admin",
-      lastName: "Counselor",
-      grade: 12,
-      role: "ADMIN",
-      isTutor: false,
-    },
-  });
-
-  // TutorSubjects
-  console.log("Assigning tutor subjects...");
-  const tutorAssignments = [
-    { userIdx: 0, subjects: ["Algebra 1", "AP Calculus AB", "Biology", "AP English Language"] },
-  ];
-
-  for (const assignment of tutorAssignments) {
-    for (const subjectName of assignment.subjects) {
-      const subjectId = subjectMap[subjectName];
-      if (!subjectId) continue;
-      await prisma.tutorSubject.upsert({
-        where: {
-          userId_subjectId: {
-            userId: userIds[assignment.userIdx],
-            subjectId,
-          },
-        },
-        update: {},
-        create: {
-          userId: userIds[assignment.userIdx],
-          subjectId,
-          selfRating: Math.floor(Math.random() * 2) + 4, // 4 or 5
-          teacherEndorsed: Math.random() > 0.5,
-        },
-      });
-    }
   }
 
   console.log("✅ Seed complete!");
