@@ -30,9 +30,21 @@ const PORT = process.env.PORT || 3001;
 
 // Security
 app.use(helmet());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://student-tutors.com",
+  "https://www.student-tutors.com",
+  ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
+];
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
