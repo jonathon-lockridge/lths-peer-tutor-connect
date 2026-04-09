@@ -271,31 +271,22 @@ function TutorApplyModal({
   const [subjectId, setSubjectId] = useState("");
   const [gpaOrGrade, setGpaOrGrade] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; dataUrl: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { onError("File must be under 5 MB"); return; }
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const apiBase = (import.meta.env.VITE_API_URL ?? "") + "/api";
-      const res = await fetch(`${apiBase}/upload`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed");
-      setUploadedFile({ name: file.name, url: json.data.url });
-    } catch (err: any) {
-      onError(err.message || "Upload failed");
-    } finally {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploadedFile({ name: file.name, dataUrl: reader.result as string });
       setUploading(false);
-    }
+    };
+    reader.onerror = () => { onError("Could not read file"); setUploading(false); };
+    reader.readAsDataURL(file);
   };
 
   const submitMutation = useMutation({
@@ -304,7 +295,7 @@ function TutorApplyModal({
         subjectId,
         evidenceType: "screenshot",
         evidenceNote,
-        evidenceUrl: uploadedFile!.url,
+        evidenceUrl: uploadedFile!.dataUrl,
         gpaOrGrade: gpaOrGrade || undefined,
       }),
     onSuccess,
@@ -413,7 +404,7 @@ function TutorApplyModal({
                 className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-sm text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-50"
               >
                 <Upload className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload Skyward screenshot or PDF (max 5MB)"}
+                {uploading ? "Reading…" : "Upload Skyward screenshot or PDF (max 5MB)"}
               </button>
             )}
           </div>

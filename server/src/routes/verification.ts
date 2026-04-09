@@ -14,7 +14,7 @@ const submitSchema = z.object({
   evidenceType: z.enum(["grades", "skyward", "screenshot", "other"]),
   evidenceNote: z.string().min(10).max(1000),
   // Require actual documentary evidence — a file URL (uploaded screenshot) or an external URL
-  evidenceUrl: z.string().url("Please upload a screenshot or provide a valid URL as proof."),
+  evidenceUrl: z.string().min(10, "Please upload a screenshot as proof."),
   gpaOrGrade: z.string().max(20).optional(),
 });
 

@@ -43,8 +43,8 @@ export function TutorProfilePage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-40 animate-pulse rounded-2xl bg-gray-200" />
-        <div className="h-24 animate-pulse rounded-xl bg-gray-200" />
+        <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+        <div className="h-24 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }

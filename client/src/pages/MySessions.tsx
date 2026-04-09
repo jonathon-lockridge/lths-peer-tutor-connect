@@ -77,7 +77,7 @@ export function MySessionsPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 animate-pulse rounded-xl bg-gray-200" />
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
       ) : view === "calendar" ? (
@@ -178,7 +178,7 @@ function MonthCalendar({
                     ? "bg-primary text-white"
                     : isToday
                     ? "border-2 border-primary font-bold text-primary"
-                    : "hover:bg-gray-100"
+                    : "hover:bg-muted"
                 }`}
               >
                 {day}

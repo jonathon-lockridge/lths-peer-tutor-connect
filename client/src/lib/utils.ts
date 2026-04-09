@@ -34,23 +34,23 @@ export function formatDateTime(dateStr: string): string {
 
 export function urgencyColor(urgency: string) {
   return urgency === "HIGH"
-    ? "bg-red-100 text-red-800"
+    ? "bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300"
     : urgency === "MEDIUM"
-    ? "bg-yellow-100 text-yellow-800"
-    : "bg-green-100 text-green-800";
+    ? "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-800 dark:text-yellow-300"
+    : "bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300";
 }
 
 export function statusColor(status: string) {
   const map: Record<string, string> = {
-    OPEN: "bg-blue-100 text-blue-800",
-    MATCHED: "bg-purple-100 text-purple-800",
-    IN_PROGRESS: "bg-yellow-100 text-yellow-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    CANCELLED: "bg-gray-100 text-gray-600",
-    PENDING: "bg-blue-100 text-blue-800",
-    ACCEPTED: "bg-green-100 text-green-800",
-    DECLINED: "bg-red-100 text-red-800",
-    NO_SHOW: "bg-gray-100 text-gray-600",
+    OPEN: "bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300",
+    MATCHED: "bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300",
+    IN_PROGRESS: "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-800 dark:text-yellow-300",
+    COMPLETED: "bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300",
+    CANCELLED: "bg-muted text-muted-foreground",
+    PENDING: "bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300",
+    ACCEPTED: "bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300",
+    DECLINED: "bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300",
+    NO_SHOW: "bg-muted text-muted-foreground",
   };
-  return map[status] ?? "bg-gray-100 text-gray-600";
+  return map[status] ?? "bg-muted text-muted-foreground";
 }

@@ -146,7 +146,7 @@ export function AdminPage() {
                     <span className="text-sm font-medium">{s.subjectName}</span>
                     <span className="text-sm text-muted-foreground">{s.count} requests</span>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-gray-100">
+                  <div className="h-1.5 w-full rounded-full bg-muted">
                     <div
                       className="h-1.5 rounded-full bg-primary"
                       style={{ width: `${(s.count / stats.topSubjects[0].count) * 100}%` }}
@@ -191,7 +191,7 @@ export function AdminPage() {
           </div>
           <div className="space-y-3">
             {feedbackList.map((f) => (
-              <div key={f.id} className="rounded-lg border bg-gray-50 p-3">
+              <div key={f.id} className="rounded-lg border bg-muted p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">{f.user.firstName} {f.user.lastName}</p>
                   <p className="text-xs text-muted-foreground">{new Date(f.createdAt).toLocaleDateString()}</p>
@@ -272,24 +272,36 @@ function VerificationReviewCard({
           {verification.evidenceUrl && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Grade proof</p>
-              {/\.(jpg|jpeg|png|webp|gif)$/i.test(verification.evidenceUrl) ? (
-                <a href={verification.evidenceUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={verification.evidenceUrl}
-                    alt="Grade proof"
-                    className="max-h-48 rounded-lg border object-contain"
-                  />
-                </a>
-              ) : (
-                <a
-                  href={verification.evidenceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border bg-muted px-3 py-2 text-sm text-primary hover:underline"
-                >
-                  View proof document ↗
-                </a>
-              )}
+              {(() => {
+                const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(verification.evidenceUrl)
+                  || verification.evidenceUrl.startsWith("data:image/");
+                return isImage ? (
+                  verification.evidenceUrl.startsWith("data:") ? (
+                    <img
+                      src={verification.evidenceUrl}
+                      alt="Grade proof"
+                      className="max-h-48 rounded-lg border object-contain"
+                    />
+                  ) : (
+                    <a href={verification.evidenceUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={verification.evidenceUrl}
+                        alt="Grade proof"
+                        className="max-h-48 rounded-lg border object-contain"
+                      />
+                    </a>
+                  )
+                ) : (
+                  <a
+                    href={verification.evidenceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border bg-muted px-3 py-2 text-sm text-primary hover:underline"
+                  >
+                    View proof document ↗
+                  </a>
+                );
+              })()}
             </div>
           )}
         </div>

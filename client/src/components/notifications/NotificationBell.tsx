@@ -58,10 +58,11 @@ export function NotificationBell() {
       const rect = btnRef.current.getBoundingClientRect();
       // Open above the button if near the bottom of screen
       const spaceBelow = window.innerHeight - rect.bottom;
+      const left = Math.min(rect.left, window.innerWidth - 320 - 8);
       if (spaceBelow < 400) {
-        setDropdownStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 8, left: rect.left });
+        setDropdownStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 8, left });
       } else {
-        setDropdownStyle({ position: "fixed", top: rect.bottom + 8, left: rect.left });
+        setDropdownStyle({ position: "fixed", top: rect.bottom + 8, left });
       }
     }
     setOpen((o) => !o);

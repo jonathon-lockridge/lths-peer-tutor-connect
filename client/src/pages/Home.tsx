@@ -213,8 +213,8 @@ export function HomePage() {
           </Link>
         </div>
         {upcomingMatches.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
-            <Calendar className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          <div className="rounded-xl border-2 border-dashed p-8 text-center">
+            <Calendar className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No upcoming sessions yet.</p>
             <Link to="/find-tutor" className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
               Find a tutor →
@@ -245,7 +245,7 @@ export function HomePage() {
 
       {/* Become a Tutor CTA — only show if not already a tutor */}
       {!isTutor && (
-        <div className="rounded-xl border bg-gradient-to-br from-gray-50 to-white p-6 text-center">
+        <div className="rounded-xl border bg-card p-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950/40">
             <Star className="h-6 w-6 text-yellow-500" />
           </div>
@@ -310,7 +310,7 @@ function PendingMatchCard({
             <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{match.request.description}</p>
           )}
         </div>
-        <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+        <span className="shrink-0 rounded-full bg-blue-100 dark:bg-blue-950/40 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:text-blue-300">
           New
         </span>
       </div>

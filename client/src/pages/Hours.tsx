@@ -112,7 +112,7 @@ export function HoursPage() {
                 key={badge.id}
                 title={badge.description}
                 className={`flex flex-col items-center rounded-xl border p-3 text-center transition-all ${
-                  earned ? "border-primary/30 bg-primary/5" : "bg-white opacity-40 grayscale"
+                  earned ? "border-primary/30 bg-primary/5" : "bg-card opacity-40 grayscale"
                 }`}
               >
                 <span className="text-3xl">{badge.icon}</span>

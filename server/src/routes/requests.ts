@@ -121,10 +121,11 @@ requestsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
         "NEW_REQUEST",
         "A student requested your help!",
         `${studentName} needs help with ${subjectName}. Accept or decline in your inbox.`,
-        "/"
+        "/",
+        { skipEmail: true }
       );
 
-      // Rich email with tutor-specific template (createNotification sends a generic one — override with richer version)
+      // Rich email with tutor-specific template
       if (tutor?.email) {
         await sendEmail(
           tutor.email,
