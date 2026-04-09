@@ -4,7 +4,8 @@ import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
 import { z } from "zod";
-import { MIN_SESSION_MINUTES, MAX_SESSION_MINUTES } from "@lths/shared";
+const MIN_SESSION_MINUTES = 15;
+const MAX_SESSION_MINUTES = 180;
 
 export const sessionsRouter = Router();
 

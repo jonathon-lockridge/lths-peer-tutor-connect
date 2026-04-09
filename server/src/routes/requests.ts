@@ -7,7 +7,7 @@ import { sendEmail, newRequestEmail } from "../utils/email";
 import { sendSms } from "../utils/sms";
 import { z } from "zod";
 import { Urgency, RequestStatus } from "@prisma/client";
-import { MAX_OPEN_REQUESTS } from "@lths/shared";
+const MAX_OPEN_REQUESTS = 5;
 
 export const requestsRouter = Router();
 

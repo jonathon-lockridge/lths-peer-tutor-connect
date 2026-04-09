@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@clerk/express": "^1.0.0",
-    "@lths/shared": "*",
     "@prisma/client": "^5.10.0",
     "@types/multer": "^2.1.0",
     "cors": "^2.8.5",
