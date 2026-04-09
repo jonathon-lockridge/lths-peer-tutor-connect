@@ -1,6 +1,6 @@
 import { ApiResponse } from "@lths/shared";
 
-const BASE = "/api";
+const BASE = (import.meta.env.VITE_API_URL ?? "") + "/api";
 
 // Set by App.tsx once Clerk is loaded
 type TokenGetter = () => Promise<string | null>;
