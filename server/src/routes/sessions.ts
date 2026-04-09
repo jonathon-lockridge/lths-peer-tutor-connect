@@ -172,7 +172,7 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
       },
     });
 
-    // Both confirmed — credit volunteer hours
+    // Both confirmed — credit volunteer hours and notify both parties
     if (updated.tutorConfirmed && updated.tuteeConfirmed) {
       const now = new Date();
       const period = now.getMonth() < 6
@@ -191,12 +191,22 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
       const mins = creditMinutes % 60;
       const timeStr = hrs > 0 ? `${hrs}h${mins > 0 ? ` ${mins}m` : ""}` : `${mins}m`;
 
+      // Notify tutor — hours credited
       await createNotification(
         match.tutorId,
         "HOUR_MILESTONE",
-        "Volunteer hours credited!",
-        `${timeStr} added to your volunteer record for this semester.`,
+        "Session confirmed — hours credited!",
+        `${timeStr} of volunteer credit added to your record for this semester.`,
         "/hours"
+      );
+
+      // Notify tutee — session confirmed, invite them to leave a review
+      await createNotification(
+        match.request.requesterId,
+        "SESSION_CONFIRMED",
+        "Session confirmed!",
+        `Your session has been confirmed by both parties. Head to Sessions to leave a review.`,
+        "/sessions"
       );
     }
 

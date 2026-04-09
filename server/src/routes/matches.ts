@@ -93,13 +93,14 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
       hour: "numeric", minute: "2-digit",
     });
 
-    // Notify the student their request was accepted
+    // Notify the student their request was accepted (skip generic email — rich email sent below)
     await createNotification(
       match.request.requesterId,
       "MATCH_ACCEPTED",
       "Tutor accepted your request!",
       `Your ${subjectName} session is scheduled for ${scheduledStr} at ${parsed.data.location}.`,
-      "/sessions"
+      "/sessions",
+      { skipEmail: true }
     );
 
     // Rich email + SMS — student info already included via requester

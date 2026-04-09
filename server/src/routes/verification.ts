@@ -13,7 +13,8 @@ const submitSchema = z.object({
   subjectId: z.string().min(1),
   evidenceType: z.enum(["grades", "skyward", "screenshot", "other"]),
   evidenceNote: z.string().min(10).max(1000),
-  evidenceUrl: z.string().url().optional().or(z.literal("")),
+  // Require actual documentary evidence — a file URL (uploaded screenshot) or an external URL
+  evidenceUrl: z.string().url("Please upload a screenshot or provide a valid URL as proof."),
   gpaOrGrade: z.string().max(20).optional(),
 });
 
@@ -44,7 +45,7 @@ verificationRouter.post("/", async (req: AuthRequest, res: Response, next: NextF
         subjectId,
         evidenceType,
         evidenceNote,
-        evidenceUrl: evidenceUrl || null,
+        evidenceUrl,
         gpaOrGrade: gpaOrGrade || null,
       },
       include: { subject: true },

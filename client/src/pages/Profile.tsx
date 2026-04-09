@@ -302,9 +302,9 @@ function TutorApplyModal({
     mutationFn: () =>
       api.post("/verification", {
         subjectId,
-        evidenceType: uploadedFile ? "screenshot" : "grades",
+        evidenceType: "screenshot",
         evidenceNote,
-        evidenceUrl: uploadedFile?.url ?? undefined,
+        evidenceUrl: uploadedFile!.url,
         gpaOrGrade: gpaOrGrade || undefined,
       }),
     onSuccess,
@@ -312,7 +312,7 @@ function TutorApplyModal({
   });
 
   const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
-  const canSubmit = subjectId && evidenceNote.trim().length >= 10 && !uploading && !submitMutation.isPending;
+  const canSubmit = subjectId && evidenceNote.trim().length >= 10 && !!uploadedFile && !uploading && !submitMutation.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-0 sm:px-4">
@@ -377,11 +377,15 @@ function TutorApplyModal({
             <p className="mt-0.5 text-right text-xs text-muted-foreground">{evidenceNote.length}/1000</p>
           </div>
 
-          {/* Optional screenshot */}
+          {/* Required proof screenshot */}
           <div>
             <label className="mb-1.5 block text-sm font-medium">
-              Evidence screenshot <span className="text-xs font-normal text-muted-foreground">(optional — Skyward, report card, etc.)</span>
+              Proof of grade <span className="text-red-500">*</span>
+              <span className="ml-1 text-xs font-normal text-muted-foreground">— Skyward screenshot, report card, or test score</span>
             </label>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Take a screenshot of your grade in Skyward or a recent test/assignment. This helps admins verify quickly.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -406,15 +410,20 @@ function TutorApplyModal({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-sm text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-50"
               >
                 <Upload className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload screenshot or PDF (max 5MB)"}
+                {uploading ? "Uploading…" : "Upload Skyward screenshot or PDF (max 5MB)"}
               </button>
             )}
           </div>
 
           {/* Submit */}
+          {!uploadedFile && (
+            <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+              A proof screenshot is required before you can submit.
+            </p>
+          )}
           <button
             onClick={() => submitMutation.mutate()}
             disabled={!canSubmit}
