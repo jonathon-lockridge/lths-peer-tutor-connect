@@ -48,7 +48,7 @@ export function AnalyticsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <BarChart2 className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold text-brand-black">Analytics</h1>
+        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
       </div>
 
       {/* Stat cards */}
@@ -64,11 +64,11 @@ export function AnalyticsPage() {
             { label: "Hours Logged", value: stats?.totalHours != null ? `${stats.totalHours}h` : undefined, icon: Clock },
             { label: "Total Requests", value: stats?.totalRequests, icon: BookOpen },
           ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-xl border bg-white p-5">
+            <div key={label} className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                 <Icon className="h-3.5 w-3.5" /> {label}
               </div>
-              <p className="text-2xl font-bold text-brand-black">{value ?? "—"}</p>
+              <p className="text-2xl font-bold text-foreground">{value ?? "—"}</p>
             </div>
           ))}
         </div>
@@ -77,7 +77,7 @@ export function AnalyticsPage() {
       {/* Charts row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Top requested subjects bar chart */}
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h2 className="mb-4 font-semibold text-sm">Most Requested Subjects</h2>
           {stats?.topSubjects && stats.topSubjects.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -104,7 +104,7 @@ export function AnalyticsPage() {
         </div>
 
         {/* User breakdown pie chart */}
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h2 className="mb-4 font-semibold text-sm">Community Breakdown</h2>
           {stats && stats.totalUsers > 0 ? (
             <div className="flex items-center justify-center gap-6">
@@ -147,7 +147,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Sessions overview bar chart */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="mb-4 font-semibold text-sm">Session Overview</h2>
         {sessionData.length > 0 ? (
           <ResponsiveContainer width="100%" height={180}>

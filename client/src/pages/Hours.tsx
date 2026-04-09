@@ -44,7 +44,7 @@ export function HoursPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-black">Volunteer Hours</h1>
+        <h1 className="text-2xl font-bold text-foreground">Volunteer Hours</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every hour you tutor helps a classmate succeed and builds your transcript.
         </p>
@@ -58,13 +58,13 @@ export function HoursPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border bg-white p-5">
+          <div className="rounded-xl border bg-card p-5">
             <p className="text-sm text-muted-foreground">Total Hours (All Time)</p>
-            <p className="mt-2 text-3xl font-bold text-brand-black">
+            <p className="mt-2 text-3xl font-bold text-foreground">
               {summary ? formatMinutes(summary.totalMinutes) : "0h"}
             </p>
           </div>
-          <div className="rounded-xl border bg-white p-5">
+          <div className="rounded-xl border bg-card p-5">
             <p className="text-sm text-muted-foreground">{summary?.currentPeriod ?? "Current Period"}</p>
             <p className="mt-2 text-3xl font-bold text-primary">
               {summary?.logs?.find((l) => l.period === summary.currentPeriod)
@@ -87,14 +87,14 @@ export function HoursPage() {
         ) : (
           <div className="space-y-2">
             {summary.logs.map((log: VolunteerHourLogDTO) => (
-              <div key={log.id} className="flex items-center justify-between rounded-xl border bg-white px-5 py-4">
+              <div key={log.id} className="flex items-center justify-between rounded-xl border bg-card px-5 py-4">
                 <div>
                   <p className="font-medium text-sm">{log.period}</p>
                   {log.exportedAt && (
                     <p className="text-xs text-muted-foreground">Exported</p>
                   )}
                 </div>
-                <p className="text-lg font-bold text-brand-black">{formatMinutes(log.totalMinutes)}</p>
+                <p className="text-lg font-bold text-foreground">{formatMinutes(log.totalMinutes)}</p>
               </div>
             ))}
           </div>
@@ -139,7 +139,7 @@ export function HoursPage() {
         {board.length === 0 ? (
           <p className="text-sm text-muted-foreground">No entries yet — be the first!</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-white">
+          <div className="overflow-hidden rounded-xl border bg-card">
             {board.map((entry, i) => (
               <div
                 key={entry.id}

@@ -15,14 +15,14 @@ const CATEGORY_COLORS: Record<SubjectCategory, string> = {
   WORLD_LANGUAGE: "bg-pink-100 text-pink-800",
   ELECTIVE: "bg-teal-100 text-teal-800",
   AP: "bg-red-100 text-red-800",
-  OTHER: "bg-gray-100 text-gray-700",
+  OTHER: "bg-muted text-muted-foreground",
 };
 
 export function TutorCard({ tutor, onRequest }: TutorCardProps) {
   const initials = `${tutor.firstName[0]}${tutor.lastName[0]}`;
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div className="rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
       <div className="flex items-start gap-4">
         {tutor.avatarUrl ? (
           <img
@@ -38,7 +38,7 @@ export function TutorCard({ tutor, onRequest }: TutorCardProps) {
         <div className="flex-1 min-w-0">
           <Link
             to={`/tutors/${tutor.id}`}
-            className="block text-base font-semibold text-brand-black hover:text-primary truncate"
+            className="block text-base font-semibold text-foreground hover:text-primary truncate"
           >
             {tutor.firstName} {tutor.lastName}
           </Link>
@@ -70,7 +70,7 @@ export function TutorCard({ tutor, onRequest }: TutorCardProps) {
             </span>
           ))}
           {tutor.tutorSubjects.length > 4 && (
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
               +{tutor.tutorSubjects.length - 4} more
             </span>
           )}

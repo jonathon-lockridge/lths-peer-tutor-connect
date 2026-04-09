@@ -71,7 +71,7 @@ export function MessagesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-black">Messages</h1>
+        <h1 className="text-2xl font-bold text-foreground">Messages</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Chat with your tutors and students.
         </p>
@@ -79,7 +79,7 @@ export function MessagesPage() {
 
       {isLoading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-200" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}
         </div>
       ) : conversations.length === 0 ? (
         <EmptyState
@@ -88,7 +88,7 @@ export function MessagesPage() {
           description="Once you're matched with a tutor or student, you can message them here."
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-white">
+        <div className="overflow-hidden rounded-xl border bg-card">
           {conversations.map((c, i) => {
             // Show the OTHER person — if I'm the tutor, show requester; otherwise show tutor
             const otherUser = c.tutorId === currentUserId ? c.request.requester : c.tutor;
@@ -97,7 +97,7 @@ export function MessagesPage() {
               <button
                 key={c.id}
                 onClick={() => navigate(`/messages/${c.id}`)}
-                className={`flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 transition-colors ${
+                className={`flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-muted transition-colors ${
                   i < conversations.length - 1 ? "border-b" : ""
                 }`}
               >
@@ -182,7 +182,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b bg-white px-2 py-3">
+      <div className="flex items-center gap-3 border-b bg-card px-2 py-3">
         <button onClick={onBack} className="rounded-lg p-1.5 hover:bg-muted">
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -217,7 +217,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
                 className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                   isMe
                     ? "bg-primary text-white rounded-br-sm"
-                    : "bg-gray-100 text-brand-black rounded-bl-sm"
+                    : "bg-muted text-foreground rounded-bl-sm"
                 }`}
               >
                 <p>{m.body}</p>
@@ -232,7 +232,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
       </div>
 
       {/* Input */}
-      <div className="border-t bg-white px-4 py-3">
+      <div className="border-t bg-card px-4 py-3">
         <div className="flex gap-2">
           <input
             type="text"
@@ -240,7 +240,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
             placeholder="Type a message…"
-            className="flex-1 rounded-full border bg-gray-50 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 rounded-full border bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <button
             onClick={handleSend}

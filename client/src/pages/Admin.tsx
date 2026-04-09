@@ -63,7 +63,7 @@ export function AdminPage() {
   const feedbackList = feedbackData?.data ?? [];
 
   const handleExport = async (period?: string) => {
-    const url = `/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
+    const url = `${import.meta.env.VITE_API_URL ?? ""}/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = `volunteer-hours${period ? `-${period}` : ""}.csv`;
@@ -74,15 +74,15 @@ export function AdminPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold text-brand-black">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
       </div>
 
       {/* Pending Tutor Verifications — prominent if any exist */}
       {pending.length > 0 && (
-        <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 p-5">
+        <div className="rounded-xl border-2 border-yellow-300 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 p-5">
           <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-yellow-700" />
-            <h2 className="font-semibold text-yellow-900">
+            <ShieldCheck className="h-5 w-5 text-yellow-700 dark:text-yellow-300" />
+            <h2 className="font-semibold text-yellow-900 dark:text-yellow-100">
               Pending Tutor Applications ({pending.length})
             </h2>
           </div>
@@ -122,12 +122,12 @@ export function AdminPage() {
             { label: "Confirmed Sessions", value: stats?.confirmedSessions, icon: Clock },
             { label: "Total Hours Logged", value: stats?.totalHours != null ? `${stats.totalHours}h` : "—", icon: TrendingUp },
           ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-xl border bg-white p-5">
+            <div key={label} className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon className="h-4 w-4" />
                 {label}
               </div>
-              <p className="mt-2 text-2xl font-bold text-brand-black">{value ?? "—"}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{value ?? "—"}</p>
             </div>
           ))}
         </div>
@@ -135,7 +135,7 @@ export function AdminPage() {
 
       {/* Top subjects */}
       {stats?.topSubjects && stats.topSubjects.length > 0 && (
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h2 className="mb-4 font-semibold">Most Requested Subjects</h2>
           <div className="space-y-2">
             {stats.topSubjects.map((s, i) => (
@@ -160,7 +160,7 @@ export function AdminPage() {
       )}
 
       {/* Export */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="mb-3 font-semibold">Export Volunteer Hours</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           Download a CSV of all logged volunteer hours. This will mark records as exported.
@@ -184,7 +184,7 @@ export function AdminPage() {
       </div>
       {/* App Feedback */}
       {feedbackList.length > 0 && (
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <div className="mb-4 flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="font-semibold">App Feedback ({feedbackList.length})</h2>
@@ -239,14 +239,14 @@ function VerificationReviewCard({
   const studentName = u ? `${u.firstName} ${u.lastName}` : "Student";
 
   return (
-    <div className="rounded-lg border bg-white p-4">
+    <div className="rounded-lg border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-sm">{studentName}</p>
             {u && <span className="text-xs text-muted-foreground">Grade {u.grade} · {u.email}</span>}
           </div>
-          <p className="text-sm text-brand-black mt-0.5">
+          <p className="text-sm text-foreground mt-0.5">
             Subject: <span className="font-medium">{verification.subject.name}</span>
           </p>
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
@@ -299,7 +299,7 @@ function VerificationReviewCard({
           <button
             onClick={() => setShowRejectForm(true)}
             disabled={approveMutation.isPending || rejectMutation.isPending}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-50 hover:bg-red-100"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-400 disabled:opacity-50 hover:bg-red-100 dark:hover:bg-red-950/50"
           >
             <XCircle className="h-4 w-4" />
             Reject
@@ -312,7 +312,7 @@ function VerificationReviewCard({
             onChange={(e) => setRejectNote(e.target.value)}
             rows={2}
             placeholder="Optional: reason for rejection (student will see this)"
-            className="w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400"
+            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400"
           />
           <div className="flex gap-2">
             <button

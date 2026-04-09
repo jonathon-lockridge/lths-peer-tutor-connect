@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserButton } from "@clerk/clerk-react";
-import { useRef, useState } from "react";
-import { Bell, BellOff, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp, MessageSquare, Upload, FileImage, X } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
@@ -10,7 +11,8 @@ export function ProfilePage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const [showVerifyForm, setShowVerifyForm] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: me } = useQuery({
     queryKey: ["me"],
@@ -38,25 +40,35 @@ export function ProfilePage() {
     onError: () => toast.error("Failed to save profile"),
   });
 
+  // Auto-open apply modal if ?apply=true in URL
+  useEffect(() => {
+    if (searchParams.get("apply") === "true") {
+      setShowApplyModal(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const user = me?.data;
   const subjects = mySubjects?.data ?? [];
   const myVerifications = verifications?.data ?? [];
   const allSubs = allSubjects?.data ?? [];
 
-  // Subjects not yet verified or pending
-  const verifiedSubjectIds = new Set(myVerifications.map((v) => v.subjectId));
-  const availableForVerification = allSubs.filter((s) => !verifiedSubjectIds.has(s.id));
+  const pendingSubjectIds = new Set(myVerifications.map((v) => v.subjectId));
+  const approvedSubjectIds = new Set(subjects.map((ts) => ts.subjectId));
+  const takenSubjectIds = new Set([...pendingSubjectIds, ...approvedSubjectIds]);
+  const availableForVerification = allSubs.filter((s) => !takenSubjectIds.has(s.id));
 
   if (!user) return null;
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`;
+  const pendingVerifications = myVerifications.filter((v) => v.status !== "APPROVED");
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-brand-black">Profile</h1>
+      <h1 className="text-2xl font-bold text-foreground">Profile</h1>
 
       {/* User info card */}
-      <div className="rounded-xl border bg-white p-6">
+      <div className="rounded-xl border bg-card p-6">
         <div className="flex items-center gap-4">
           {user.avatarUrl ? (
             <img src={user.avatarUrl} className="h-16 w-16 rounded-full object-cover" alt="" />
@@ -89,7 +101,7 @@ export function ProfilePage() {
       </div>
 
       {/* Notifications */}
-      <div className="rounded-xl border bg-white p-6">
+      <div className="rounded-xl border bg-card p-6">
         <h3 className="mb-4 font-semibold">Notifications</h3>
         <div className="flex items-center justify-between">
           <div>
@@ -101,7 +113,7 @@ export function ProfilePage() {
           <button
             onClick={() => updateMutation.mutate({ notificationsEnabled: !user.notificationsEnabled })}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              user.notificationsEnabled !== false ? "bg-primary" : "bg-gray-300"
+              user.notificationsEnabled !== false ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"
             }`}
           >
             <span
@@ -120,78 +132,89 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Tutor status + subjects */}
-      <div className="rounded-xl border bg-white p-6">
-        <div className="mb-4 flex items-center justify-between">
+      {/* Tutor Status */}
+      <div className="rounded-xl border bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
           <h3 className="font-semibold">Tutor Status</h3>
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            user.isTutor ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+            user.isTutor
+              ? "bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300"
+              : "bg-muted text-muted-foreground"
           }`}>
             {user.isTutor ? "Active Tutor" : "Not a Tutor"}
           </span>
         </div>
 
-        {/* Approved subjects list */}
+        {/* Approved subjects */}
         {subjects.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Approved Subjects</p>
             {subjects.map((ts) => (
-              <div key={ts.id} className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+              <div key={ts.id} className="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-green-900">{ts.subject.name}</p>
-                  <p className="text-xs text-green-700">Confidence: {ts.selfRating}/5{ts.teacherEndorsed ? " · Teacher Endorsed" : ""}</p>
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100">{ts.subject.name}</p>
+                  <p className="text-xs text-green-700 dark:text-green-400">Confidence: {ts.selfRating}/5{ts.teacherEndorsed ? " · Teacher Endorsed" : ""}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Pending / rejected verifications */}
-        {myVerifications.filter((v) => v.status !== "APPROVED").length > 0 && (
-          <div className="mb-4 space-y-2">
+        {/* Pending / rejected applications */}
+        {pendingVerifications.length > 0 && (
+          <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Applications</p>
-            {myVerifications.filter((v) => v.status !== "APPROVED").map((v) => (
+            {pendingVerifications.map((v) => (
               <VerificationStatusRow key={v.id} verification={v} />
             ))}
           </div>
         )}
 
-        {/* Submit new verification */}
-        {availableForVerification.length > 0 && (
-          <div className="border-t pt-4">
-            <button
-              onClick={() => setShowVerifyForm(!showVerifyForm)}
-              className="flex w-full items-center justify-between text-sm font-medium text-primary hover:opacity-80"
-            >
-              <span>Apply to tutor a new subject</span>
-              {showVerifyForm ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Submit your grades or Skyward evidence. An admin will review and approve within a few days.
-            </p>
-
-            {showVerifyForm && (
-              <TutorVerificationForm
-                subjects={availableForVerification}
-                onSuccess={() => {
-                  setShowVerifyForm(false);
-                  qc.invalidateQueries({ queryKey: ["verifications-mine"] });
-                  toast.success("Application submitted! An admin will review it soon.");
-                }}
-                onError={(msg) => toast.error(msg)}
-              />
-            )}
-          </div>
-        )}
-
-        {availableForVerification.length === 0 && myVerifications.length === 0 && subjects.length === 0 && (
-          <p className="text-sm text-muted-foreground">All subjects already covered or pending review.</p>
+        {/* Apply CTA */}
+        {availableForVerification.length > 0 ? (
+          <button
+            onClick={() => setShowApplyModal(true)}
+            className="flex w-full items-center justify-between rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 px-4 py-4 text-left transition-colors hover:border-primary/60 hover:bg-primary/10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                <GraduationCap className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {user.isTutor ? "Add another subject" : "Become a Tutor"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Apply to tutor a subject — an admin reviews within a few days
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+          </button>
+        ) : (
+          subjects.length === 0 && pendingVerifications.length === 0 && (
+            <p className="text-sm text-muted-foreground">All subjects are already pending or approved.</p>
+          )
         )}
       </div>
 
       {/* App Feedback */}
       <AppFeedbackForm />
+
+      {/* Apply to Tutor Modal */}
+      {showApplyModal && (
+        <TutorApplyModal
+          subjects={availableForVerification}
+          onClose={() => setShowApplyModal(false)}
+          onSuccess={() => {
+            setShowApplyModal(false);
+            qc.invalidateQueries({ queryKey: ["verifications-mine"] });
+            toast.success("Application submitted! An admin will review it soon.");
+          }}
+          onError={(msg) => toast.error(msg)}
+        />
+      )}
     </div>
   );
 }
@@ -201,17 +224,17 @@ export function ProfilePage() {
 const statusConfig: Record<VerificationStatus, { icon: React.ReactNode; color: string; label: string }> = {
   PENDING: {
     icon: <Clock className="h-4 w-4 shrink-0 text-yellow-600" />,
-    color: "bg-yellow-50 border-yellow-200",
+    color: "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800",
     label: "Pending review",
   },
   APPROVED: {
-    icon: <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />,
-    color: "bg-green-50 border-green-200",
+    icon: <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />,
+    color: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800",
     label: "Approved",
   },
   REJECTED: {
     icon: <XCircle className="h-4 w-4 shrink-0 text-red-500" />,
-    color: "bg-red-50 border-red-200",
+    color: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
     label: "Not approved",
   },
 };
@@ -225,29 +248,29 @@ function VerificationStatusRow({ verification }: { verification: TutorVerificati
         <p className="text-sm font-medium">{verification.subject.name}</p>
         <p className="text-xs text-muted-foreground">{cfg.label}</p>
         {verification.status === "REJECTED" && verification.reviewNote && (
-          <p className="mt-0.5 text-xs text-red-600">Reason: {verification.reviewNote}</p>
+          <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">Reason: {verification.reviewNote}</p>
         )}
       </div>
     </div>
   );
 }
 
-// ── Verification form ────────────────────────────────────────────────────────
+// ── Tutor Apply Modal ─────────────────────────────────────────────────────────
 
-function TutorVerificationForm({
+function TutorApplyModal({
   subjects,
+  onClose,
   onSuccess,
   onError,
 }: {
   subjects: SubjectDTO[];
+  onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
   const [subjectId, setSubjectId] = useState("");
-  const [evidenceType, setEvidenceType] = useState<"grades" | "skyward" | "screenshot" | "other">("grades");
   const [gpaOrGrade, setGpaOrGrade] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -268,7 +291,6 @@ function TutorVerificationForm({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       setUploadedFile({ name: file.name, url: json.data.url });
-      setEvidenceUrl(json.data.url);
     } catch (err: any) {
       onError(err.message || "Upload failed");
     } finally {
@@ -280,9 +302,9 @@ function TutorVerificationForm({
     mutationFn: () =>
       api.post("/verification", {
         subjectId,
-        evidenceType,
+        evidenceType: uploadedFile ? "screenshot" : "grades",
         evidenceNote,
-        evidenceUrl: evidenceUrl || undefined,
+        evidenceUrl: uploadedFile?.url ?? undefined,
         gpaOrGrade: gpaOrGrade || undefined,
       }),
     onSuccess,
@@ -290,130 +312,118 @@ function TutorVerificationForm({
   });
 
   const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
+  const canSubmit = subjectId && evidenceNote.trim().length >= 10 && !uploading && !submitMutation.isPending;
 
   return (
-    <div className="mt-4 space-y-3 border-t pt-4">
-      <div>
-        <label className="mb-1 block text-xs font-medium">Subject *</label>
-        <select
-          value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">Select a subject…</option>
-          {sortedSubjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-medium">Evidence type *</label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(["grades", "skyward", "screenshot", "other"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => { setEvidenceType(t); setUploadedFile(null); setEvidenceUrl(""); }}
-              className={`rounded-lg border py-2 text-xs font-medium capitalize transition-colors ${
-                evidenceType === t
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "hover:bg-muted text-muted-foreground"
-              }`}
-            >
-              {t === "skyward" ? "Skyward" : t === "screenshot" ? "Screenshot" : t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-0 sm:px-4">
+      <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-card shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-foreground">Apply to Become a Tutor</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
-      </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium">
-          Grade / GPA <span className="font-normal text-muted-foreground">(optional)</span>
-        </label>
-        <input
-          value={gpaOrGrade}
-          onChange={(e) => setGpaOrGrade(e.target.value)}
-          placeholder='e.g. "A", "95", "4.2 GPA"'
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
+        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          <p className="text-sm text-muted-foreground">
+            Pick a subject you're strong in, enter your grade, and explain why you'd be a good tutor. An admin will approve within a few days.
+          </p>
 
-      {/* Evidence attachment — file upload for screenshot, URL for others */}
-      {evidenceType === "screenshot" ? (
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            Screenshot <span className="font-normal text-muted-foreground">(image or PDF, max 5MB)</span>
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          {uploadedFile ? (
-            <div className="flex items-center gap-3 rounded-lg border border-green-300 bg-green-50 px-3 py-2.5">
-              <FileImage className="h-4 w-4 shrink-0 text-green-600" />
-              <span className="flex-1 truncate text-sm text-green-800">{uploadedFile.name}</span>
+          {/* Subject */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Subject <span className="text-red-500">*</span></label>
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Choose a subject…</option>
+              {sortedSubjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Grade */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Your grade in this subject <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              value={gpaOrGrade}
+              onChange={(e) => setGpaOrGrade(e.target.value)}
+              placeholder='e.g. "A", "95", "4.0 GPA"'
+              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          {/* Why are you good */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Why are you a good tutor for this? <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={evidenceNote}
+              onChange={(e) => setEvidenceNote(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="Tell us about your experience — what grade you got, what level class you took, and how you'd explain it to someone struggling…"
+              className="w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="mt-0.5 text-right text-xs text-muted-foreground">{evidenceNote.length}/1000</p>
+          </div>
+
+          {/* Optional screenshot */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Evidence screenshot <span className="text-xs font-normal text-muted-foreground">(optional — Skyward, report card, etc.)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {uploadedFile ? (
+              <div className="flex items-center gap-3 rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2.5">
+                <FileImage className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+                <span className="flex-1 truncate text-sm text-green-800 dark:text-green-300">{uploadedFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setUploadedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  className="shrink-0 text-green-600 dark:text-green-400 hover:text-red-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => { setUploadedFile(null); setEvidenceUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                className="shrink-0 text-green-600 hover:text-red-500"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
               >
-                <X className="h-4 w-4" />
+                <Upload className="h-4 w-4" />
+                {uploading ? "Uploading…" : "Upload screenshot or PDF (max 5MB)"}
               </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-            >
-              <Upload className="h-4 w-4" />
-              {uploading ? "Uploading…" : "Click to upload a screenshot or PDF"}
-            </button>
-          )}
-        </div>
-      ) : (
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            Evidence URL <span className="font-normal text-muted-foreground">(optional — Google Drive, Skyward, etc.)</span>
-          </label>
-          <input
-            value={evidenceUrl}
-            onChange={(e) => setEvidenceUrl(e.target.value)}
-            placeholder="https://drive.google.com/…"
-            type="url"
-            className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-      )}
+            )}
+          </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium">
-          Explain your proficiency *{" "}
-          <span className="font-normal text-muted-foreground">(min 10 chars)</span>
-        </label>
-        <textarea
-          value={evidenceNote}
-          onChange={(e) => setEvidenceNote(e.target.value)}
-          rows={3}
-          maxLength={1000}
-          placeholder="Describe your experience with this subject — grades, class level, how you'd help others…"
-          className="w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-        />
-        <p className="mt-0.5 text-right text-xs text-muted-foreground">{evidenceNote.length}/1000</p>
+          {/* Submit */}
+          <button
+            onClick={() => submitMutation.mutate()}
+            disabled={!canSubmit}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+          >
+            {submitMutation.isPending ? "Submitting…" : "Submit Application"}
+          </button>
+        </div>
       </div>
-
-      <button
-        onClick={() => submitMutation.mutate()}
-        disabled={!subjectId || evidenceNote.length < 10 || uploading || submitMutation.isPending}
-        className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
-      >
-        {submitMutation.isPending ? "Submitting…" : "Submit Application"}
-      </button>
     </div>
   );
 }
@@ -440,26 +450,26 @@ function EditProfileForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1 block text-xs font-medium">First Name</label>
-          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">Last Name</label>
-          <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
         </div>
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium">Grade</label>
-        <select value={grade} onChange={(e) => setGrade(Number(e.target.value) as 9 | 10 | 11 | 12)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
+        <select value={grade} onChange={(e) => setGrade(Number(e.target.value) as 9 | 10 | 11 | 12)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
           {[9, 10, 11, 12].map((g) => <option key={g} value={g}>{g}th Grade</option>)}
         </select>
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium">Phone <span className="font-normal text-muted-foreground">(optional — visible to matched tutors/students)</span></label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="512-555-0100" className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="512-555-0100" className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium">Bio <span className="font-normal text-muted-foreground">(optional)</span></label>
-        <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={500} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary resize-none" />
+        <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={500} className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
       </div>
       <button
         onClick={() => onSave({ firstName, lastName, grade, bio: bio || null, phone: phone || null })}
@@ -490,14 +500,14 @@ function AppFeedbackForm() {
   });
 
   return (
-    <div className="rounded-xl border bg-white p-6">
+    <div className="rounded-xl border bg-card p-6">
       <div className="mb-4 flex items-center gap-2">
         <MessageSquare className="h-5 w-5 text-primary" />
         <h3 className="font-semibold">App Feedback</h3>
       </div>
 
       {submitted ? (
-        <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+        <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-800 dark:text-green-300">
           ✓ Feedback received — thank you for helping improve the app!
         </div>
       ) : (
@@ -511,7 +521,7 @@ function AppFeedbackForm() {
             rows={4}
             maxLength={500}
             placeholder="Your feedback…"
-            className="w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{body.length}/500</span>

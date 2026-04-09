@@ -52,7 +52,7 @@ export function TutorProfilePage() {
   const tutor = data?.data;
   if (!tutor) return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <p className="text-lg font-semibold text-brand-black">Tutor not found</p>
+      <p className="text-lg font-semibold text-foreground">Tutor not found</p>
       <p className="mt-1 text-sm text-muted-foreground">This profile may no longer exist.</p>
       <Link to="/find-tutor" className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90">
         Back to Find a Tutor
@@ -69,7 +69,7 @@ export function TutorProfilePage() {
       </Link>
 
       {/* Header */}
-      <div className="rounded-2xl border bg-white p-6">
+      <div className="rounded-2xl border bg-card p-6">
         <div className="flex items-start gap-5">
           {tutor.avatarUrl ? (
             <img src={tutor.avatarUrl} className="h-20 w-20 rounded-full object-cover" alt="" />
@@ -79,7 +79,7 @@ export function TutorProfilePage() {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-brand-black">{tutor.firstName} {tutor.lastName}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{tutor.firstName} {tutor.lastName}</h1>
             <p className="text-muted-foreground">Grade {tutor.grade}</p>
             <div className="mt-2 flex items-center gap-4 text-sm">
               {tutor.averageRating !== null && (
@@ -109,7 +109,7 @@ export function TutorProfilePage() {
       </div>
 
       {/* Subjects */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="mb-3 font-semibold">Subjects</h2>
         <div className="flex flex-wrap gap-2">
           {tutor.tutorSubjects.map((ts) => (
@@ -124,7 +124,7 @@ export function TutorProfilePage() {
       </div>
 
       {/* Reviews */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="mb-3 font-semibold">Student Reviews</h2>
         {tutor.recentReviews.length === 0 ? (
           <p className="text-sm text-muted-foreground">No reviews yet — be the first!</p>

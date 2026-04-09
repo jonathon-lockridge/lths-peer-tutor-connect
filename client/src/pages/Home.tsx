@@ -102,7 +102,7 @@ export function HomePage() {
               <MessageSquare className="h-3 w-3" /> Message
             </button>
           </div>
-          <p className="font-semibold text-brand-black">{nextMatch.request.subject.name}</p>
+          <p className="font-semibold text-foreground">{nextMatch.request.subject.name}</p>
           <p className="text-sm text-muted-foreground">
             with {nextMatch.tutor.firstName} {nextMatch.tutor.lastName}
             {nextMatch.location ? ` · ${nextMatch.location}` : ""}
@@ -129,25 +129,25 @@ export function HomePage() {
           <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
         ) : (
           <>
-            <div className="rounded-xl border bg-white p-4 text-center">
+            <div className="rounded-xl border bg-card p-4 text-center">
               <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
                 <Clock className="h-3.5 w-3.5" />
               </div>
-              <p className="text-xl font-bold text-brand-black">{formatMinutes(totalMinutes)}</p>
+              <p className="text-xl font-bold text-foreground">{formatMinutes(totalMinutes)}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Hours</p>
             </div>
-            <div className="rounded-xl border bg-white p-4 text-center">
+            <div className="rounded-xl border bg-card p-4 text-center">
               <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
                 <Calendar className="h-3.5 w-3.5" />
               </div>
-              <p className="text-xl font-bold text-brand-black">{upcomingMatches.length}</p>
+              <p className="text-xl font-bold text-foreground">{upcomingMatches.length}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Upcoming</p>
             </div>
-            <div className="rounded-xl border bg-white p-4 text-center">
+            <div className="rounded-xl border bg-card p-4 text-center">
               <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
                 <BookOpen className="h-3.5 w-3.5" />
               </div>
-              <p className="text-xl font-bold text-brand-black">{pendingRequests.length}</p>
+              <p className="text-xl font-bold text-foreground">{pendingRequests.length}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Requests</p>
             </div>
           </>
@@ -178,8 +178,8 @@ export function HomePage() {
           {/* Decline confirmation dialog */}
           {confirmDeclineId && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-                <h3 className="font-semibold text-brand-black">Decline this request?</h3>
+              <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+                <h3 className="font-semibold text-foreground">Decline this request?</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   The student will be notified and their request will go back to open so another tutor can help.
                 </p>
@@ -223,7 +223,7 @@ export function HomePage() {
         ) : (
           <div className="space-y-3">
             {upcomingMatches.slice(0, 3).map((m) => (
-              <div key={m.id} className="flex items-center gap-4 rounded-xl border bg-white p-4 transition-shadow hover:shadow-sm">
+              <div key={m.id} className="flex items-center gap-4 rounded-xl border bg-card p-4 transition-shadow hover:shadow-sm">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                   <Calendar className="h-5 w-5 text-primary" />
                 </div>
@@ -246,15 +246,15 @@ export function HomePage() {
       {/* Become a Tutor CTA — only show if not already a tutor */}
       {!isTutor && (
         <div className="rounded-xl border bg-gradient-to-br from-gray-50 to-white p-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950/40">
             <Star className="h-6 w-6 text-yellow-500" />
           </div>
-          <h3 className="font-semibold text-brand-black">Become a Tutor</h3>
+          <h3 className="font-semibold text-foreground">Become a Tutor</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Share your knowledge, earn volunteer hours, and build your transcript.
           </p>
           <Link
-            to="/profile"
+            to="/profile?apply=true"
             className="mt-4 inline-block rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
           >
             Apply to Tutor
@@ -299,10 +299,10 @@ function PendingMatchCard({
   });
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+    <div className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-brand-black">{match.request.subject.name}</p>
+          <p className="font-semibold text-foreground">{match.request.subject.name}</p>
           <p className="text-sm text-muted-foreground">
             From {match.request.requester.firstName} {match.request.requester.lastName} · Grade {match.request.requester.grade}
           </p>
@@ -324,7 +324,7 @@ function PendingMatchCard({
               value={scheduledAt}
               min={minDateTime}
               onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
@@ -334,7 +334,7 @@ function PendingMatchCard({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Library Room 2, Cafeteria, Virtual/Zoom"
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div className="flex gap-2">
@@ -365,7 +365,7 @@ function PendingMatchCard({
           <button
             onClick={onDecline}
             disabled={declining}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/30 disabled:opacity-50"
           >
             <X className="h-4 w-4" /> Decline
           </button>

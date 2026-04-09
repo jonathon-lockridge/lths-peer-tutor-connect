@@ -72,9 +72,9 @@ function ToastItem({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
   };
 
   const borders = {
-    success: "border-green-200 bg-white",
-    error: "border-red-200 bg-white",
-    info: "border-blue-200 bg-white",
+    success: "border-green-200 bg-card dark:border-green-800",
+    error: "border-red-200 bg-card dark:border-red-800",
+    info: "border-blue-200 bg-card dark:border-blue-800",
   };
 
   return (
@@ -82,7 +82,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
       className={`flex w-72 items-start gap-3 rounded-xl border px-4 py-3 shadow-lg animate-toast-in ${borders[toast.type]}`}
     >
       {icons[toast.type]}
-      <p className="flex-1 text-sm font-medium text-brand-black">{toast.message}</p>
+      <p className="flex-1 text-sm font-medium text-foreground">{toast.message}</p>
       <button
         onClick={() => onDismiss(toast.id)}
         className="ml-1 shrink-0 text-muted-foreground hover:text-foreground"

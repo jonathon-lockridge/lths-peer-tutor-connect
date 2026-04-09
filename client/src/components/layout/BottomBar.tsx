@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Search, Calendar, MessageSquare, User, MoreHorizontal, BookOpen, Clock, BarChart2, X } from "lucide-react";
+import { Home, Search, Calendar, MessageSquare, User, MoreHorizontal, BookOpen, Clock, BarChart2, X, Moon, Sun, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useTheme } from "@/lib/theme";
+import { UserDTO, TutorVerificationDTO } from "@lths/shared";
 
 function useUnreadMessages() {
   const { data } = useQuery({
@@ -33,6 +35,21 @@ export function BottomBar() {
   const [showMore, setShowMore] = useState(false);
   const navigate = useNavigate();
   const unreadMessages = useUnreadMessages();
+  const { theme, toggleTheme } = useTheme();
+
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.get<UserDTO>("/auth/me"),
+  });
+  const isAdmin = me?.data?.role === "ADMIN";
+
+  const { data: pendingData } = useQuery({
+    queryKey: ["verifications-pending"],
+    queryFn: () => api.get<TutorVerificationDTO[]>("/verification/pending"),
+    enabled: isAdmin,
+    staleTime: 60000,
+  });
+  const pendingCount = pendingData?.data?.length ?? 0;
 
   return (
     <>
@@ -40,14 +57,14 @@ export function BottomBar() {
       {showMore && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/30"
+            className="fixed inset-0 z-40 bg-black/40"
             onClick={() => setShowMore(false)}
           />
-          <div className="fixed bottom-[64px] left-0 right-0 z-50 rounded-t-2xl border-t bg-white px-4 pb-6 pt-3 shadow-xl">
+          <div className="fixed bottom-[64px] left-0 right-0 z-50 rounded-t-2xl border-t bg-card px-4 pb-6 pt-3 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-semibold text-brand-black">More</p>
+              <p className="text-sm font-semibold text-foreground">More</p>
               <button onClick={() => setShowMore(false)} className="rounded-lg p-1 hover:bg-muted">
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-foreground" />
               </button>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -55,19 +72,41 @@ export function BottomBar() {
                 <button
                   key={to}
                   onClick={() => { navigate(to); setShowMore(false); }}
-                  className="flex flex-col items-center gap-2 rounded-xl border bg-gray-50 py-4 text-xs font-medium text-brand-black hover:bg-gray-100 transition-colors"
+                  className="flex flex-col items-center gap-2 rounded-xl border bg-muted py-4 text-xs font-medium text-foreground hover:bg-accent transition-colors"
                 >
                   <Icon className="h-5 w-5 text-primary" />
                   {label}
                 </button>
               ))}
+              {isAdmin && (
+                <button
+                  onClick={() => { navigate("/admin"); setShowMore(false); }}
+                  className="relative flex flex-col items-center gap-2 rounded-xl border bg-muted py-4 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                >
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Admin
+                  {pendingCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              {/* Dark mode toggle */}
+              <button
+                onClick={toggleTheme}
+                className="flex flex-col items-center gap-2 rounded-xl border bg-muted py-4 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                {theme === "dark" ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
+                {theme === "dark" ? "Light" : "Dark"}
+              </button>
             </div>
           </div>
         </>
       )}
 
       {/* Bottom nav */}
-      <nav className="flex border-t bg-white shadow-lg safe-area-inset-bottom">
+      <nav className="flex border-t bg-card shadow-lg safe-area-inset-bottom">
         {PRIMARY_TABS.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

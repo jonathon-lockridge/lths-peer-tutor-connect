@@ -34,7 +34,7 @@ export function MyRequestsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-black">My Requests</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Requests</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Track the help you've asked for.
           </p>
@@ -69,10 +69,10 @@ export function MyRequestsPage() {
       ) : (
         <div className="space-y-3">
           {requests.map((r) => (
-            <div key={r.id} className="rounded-xl border bg-white p-5">
+            <div key={r.id} className="rounded-xl border bg-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-brand-black">{r.subject.name}</p>
+                  <p className="font-semibold text-foreground">{r.subject.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{r.description}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -113,7 +113,7 @@ export function MyRequestsPage() {
           {showCancelled && (
             <div className="mt-2 space-y-2 opacity-60">
               {cancelled.map((r) => (
-                <div key={r.id} className="rounded-xl border bg-white p-4">
+                <div key={r.id} className="rounded-xl border bg-card p-4">
                   <p className="text-sm font-medium line-through">{r.subject.name}</p>
                   <p className="text-xs text-muted-foreground">Cancelled · {formatDate(r.createdAt)}</p>
                 </div>

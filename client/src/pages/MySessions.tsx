@@ -49,12 +49,12 @@ export function MySessionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-black">My Sessions</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Sessions</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             View and confirm your tutoring sessions.
           </p>
         </div>
-        <div className="flex rounded-lg border bg-white p-1">
+        <div className="flex rounded-lg border bg-card p-1">
           <button
             onClick={() => setView("list")}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -145,7 +145,7 @@ function MonthCalendar({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
           <button onClick={() => setCurrent(new Date(year, month - 1, 1))} className="rounded-lg p-1.5 hover:bg-muted">
             <ChevronLeft className="h-5 w-5" />
@@ -201,7 +201,7 @@ function MonthCalendar({
             })}
           </h3>
           {selectedSessions.length === 0 ? (
-            <p className="rounded-xl border bg-white px-5 py-4 text-sm text-muted-foreground">
+            <p className="rounded-xl border bg-card px-5 py-4 text-sm text-muted-foreground">
               No sessions on this day.
             </p>
           ) : (
@@ -247,21 +247,21 @@ function SessionCard({
   const myCode = iAmConfirmed && !bothConfirmed ? s.confirmCode : undefined;
 
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-brand-black">{s.match.request.subject.name}</p>
+          <p className="font-semibold text-foreground">{s.match.request.subject.name}</p>
           <p className="text-sm text-muted-foreground">
             {s.match.tutor.firstName} {s.match.tutor.lastName} &amp;{" "}
             {s.match.request.requester.firstName} {s.match.request.requester.lastName}
           </p>
         </div>
         {bothConfirmed ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 dark:bg-green-950/40 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300">
             <CheckCircle2 className="h-3 w-3" /> Confirmed
           </span>
         ) : (
-          <span className="shrink-0 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+          <span className="shrink-0 rounded-full bg-yellow-100 dark:bg-yellow-950/40 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:text-yellow-300">
             Pending
           </span>
         )}
@@ -279,12 +279,12 @@ function SessionCard({
       {/* Confirmation status breakdown */}
       {!bothConfirmed && (
         <div className="mt-3 flex gap-3 text-xs">
-          <span className={`flex items-center gap-1 ${s.tutorConfirmed ? "text-green-700" : "text-muted-foreground"}`}>
-            <CheckCircle2 className={`h-3.5 w-3.5 ${s.tutorConfirmed ? "text-green-600" : "text-gray-300"}`} />
+          <span className={`flex items-center gap-1 ${s.tutorConfirmed ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+            <CheckCircle2 className={`h-3.5 w-3.5 ${s.tutorConfirmed ? "text-green-600 dark:text-green-400" : "text-gray-300"}`} />
             Tutor {s.tutorConfirmed ? "confirmed" : "pending"}
           </span>
-          <span className={`flex items-center gap-1 ${s.tuteeConfirmed ? "text-green-700" : "text-muted-foreground"}`}>
-            <CheckCircle2 className={`h-3.5 w-3.5 ${s.tuteeConfirmed ? "text-green-600" : "text-gray-300"}`} />
+          <span className={`flex items-center gap-1 ${s.tuteeConfirmed ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+            <CheckCircle2 className={`h-3.5 w-3.5 ${s.tuteeConfirmed ? "text-green-600 dark:text-green-400" : "text-gray-300"}`} />
             Student {s.tuteeConfirmed ? "confirmed" : "pending"}
           </span>
         </div>
@@ -307,7 +307,7 @@ function SessionCard({
           href={meetingUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+          className="mt-4 flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50"
         >
           <Video className="h-4 w-4" /> Join Meeting
         </a>
@@ -315,10 +315,10 @@ function SessionCard({
 
       {/* Confirm code — shown to the person who already confirmed */}
       {myCode && (
-        <div className="mt-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3">
-          <p className="text-xs font-medium text-yellow-800">Share this code with the other person to confirm:</p>
+        <div className="mt-3 rounded-lg border border-yellow-300 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 px-4 py-3">
+          <p className="text-xs font-medium text-yellow-800 dark:text-yellow-300">Share this code with the other person to confirm:</p>
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-2xl font-bold tracking-widest text-yellow-900">{myCode}</span>
+            <span className="text-2xl font-bold tracking-widest text-yellow-900 dark:text-yellow-100">{myCode}</span>
             <KeyRound className="h-4 w-4 text-yellow-600" />
           </div>
         </div>
@@ -396,8 +396,8 @@ function ReviewCard({ sessionId }: { sessionId: string }) {
   if (submitted) return null;
 
   return (
-    <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-      <p className="mb-2 text-sm font-medium text-brand-black">Rate this session</p>
+    <div className="mt-4 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 p-4">
+      <p className="mb-2 text-sm font-medium text-foreground">Rate this session</p>
       <div className="mb-3 flex gap-1">
         {[1, 2, 3, 4, 5].map((i) => (
           <button
@@ -420,7 +420,7 @@ function ReviewCard({ sessionId }: { sessionId: string }) {
         onChange={(e) => setComment(e.target.value)}
         placeholder="Optional comment…"
         rows={2}
-        className="w-full resize-none rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+        className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
       />
       <button
         onClick={() => reviewMutation.mutate()}

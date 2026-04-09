@@ -16,6 +16,7 @@ import { MessagesPage } from "@/pages/Messages";
 import { NotFoundPage } from "@/pages/NotFound";
 import { setAuthTokenGetter } from "@/lib/api";
 import { ToastProvider } from "@/components/shared/Toast";
+import { ThemeProvider } from "@/lib/theme";
 
 // Wires Clerk's session token into every API call
 function TokenSetup() {
@@ -43,6 +44,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <ToastProvider>
     <BrowserRouter>
       <TokenSetup />
@@ -50,12 +52,12 @@ export default function App() {
         <Route
           path="/sign-in/*"
           element={
-            <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50 px-4 py-10">
+            <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
               <div className="text-center">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
                   <img src="/favicon.svg" alt="Logo" className="h-8 w-8" />
                 </div>
-                <h1 className="text-xl font-bold text-brand-black">Peer Tutor Connect</h1>
+                <h1 className="text-xl font-bold text-foreground">Peer Tutor Connect</h1>
                 <p className="mt-0.5 text-sm text-muted-foreground">Lake Travis High School · Cavaliers Helping Cavaliers</p>
               </div>
               <SignIn routing="path" path="/sign-in" afterSignInUrl="/" />
@@ -65,12 +67,12 @@ export default function App() {
         <Route
           path="/sign-up/*"
           element={
-            <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50 px-4 py-10">
+            <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
               <div className="text-center">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
                   <img src="/favicon.svg" alt="Logo" className="h-8 w-8" />
                 </div>
-                <h1 className="text-xl font-bold text-brand-black">Join Peer Tutor Connect</h1>
+                <h1 className="text-xl font-bold text-foreground">Join Peer Tutor Connect</h1>
                 <p className="mt-0.5 text-sm text-muted-foreground">Lake Travis High School — use your school email to sign up</p>
               </div>
               <SignUp routing="path" path="/sign-up" afterSignUpUrl="/onboarding" />
@@ -111,5 +113,6 @@ export default function App() {
       </Routes>
     </BrowserRouter>
     </ToastProvider>
+    </ThemeProvider>
   );
 }

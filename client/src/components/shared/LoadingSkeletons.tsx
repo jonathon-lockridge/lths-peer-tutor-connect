@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-gray-200", className)} />;
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} />;
 }
 
 export function TutorCardSkeleton() {
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border bg-card p-5">
       <div className="flex items-start gap-4">
         <Skeleton className="h-12 w-12 rounded-full" />
         <div className="flex-1 space-y-2">
@@ -24,7 +24,7 @@ export function TutorCardSkeleton() {
 
 export function RequestCardSkeleton() {
   return (
-    <div className="rounded-xl border bg-white p-5 space-y-3">
+    <div className="rounded-xl border bg-card p-5 space-y-3">
       <Skeleton className="h-5 w-40" />
       <Skeleton className="h-3 w-full" />
       <Skeleton className="h-3 w-3/4" />
@@ -38,7 +38,7 @@ export function RequestCardSkeleton() {
 
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border bg-white p-5 space-y-2">
+    <div className="rounded-xl border bg-card p-5 space-y-2">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-8 w-16" />
     </div>

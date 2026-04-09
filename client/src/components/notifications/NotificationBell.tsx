@@ -87,7 +87,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="z-[9999] w-80 rounded-xl border bg-white shadow-xl" style={dropdownStyle}>
+        <div className="z-[9999] w-80 rounded-xl border bg-card shadow-xl" style={dropdownStyle}>
           <div className="flex items-center justify-between border-b px-4 py-3">
             <h3 className="font-semibold text-sm">Notifications</h3>
             {unread > 0 && (
@@ -114,12 +114,12 @@ export function NotificationBell() {
                     if (n.linkTo) navigate(n.linkTo);
                     setOpen(false);
                   }}
-                  className={`w-full border-b px-4 py-3 text-left last:border-b-0 hover:bg-gray-50 ${
+                  className={`w-full border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted ${
                     !n.read ? "bg-primary/5" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`text-sm font-medium ${!n.read ? "text-brand-black" : "text-muted-foreground"}`}>
+                    <p className={`text-sm font-medium ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>
                       {n.title}
                     </p>
                     {!n.read && (

@@ -35,7 +35,7 @@ export function FindTutorPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-black">Find a Tutor</h1>
+        <h1 className="text-2xl font-bold text-foreground">Find a Tutor</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Connect with a fellow Cavalier who's got your back.
         </p>
@@ -50,14 +50,14 @@ export function FindTutorPage() {
             placeholder="Search by name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <div className="flex gap-3">
           <select
             value={subjectFilter}
             onChange={(e) => setSubjectFilter(e.target.value)}
-            className="flex-1 rounded-lg border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">All Subjects</option>
             {[...(subjects?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
@@ -69,7 +69,7 @@ export function FindTutorPage() {
           <select
             value={gradeFilter}
             onChange={(e) => setGradeFilter(e.target.value)}
-            className="w-32 rounded-lg border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-32 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">All Grades</option>
             <option value="9">9th</option>
