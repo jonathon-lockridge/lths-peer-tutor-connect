@@ -28,17 +28,30 @@ export async function requireAuth(
     if (!user) {
       const clerkUser = await clerk.users.getUser(clerkUserId);
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
-      user = await prisma.user.create({
-        data: {
-          clerkId: clerkUserId,
-          email,
-          firstName: clerkUser.firstName ?? "",
-          lastName: clerkUser.lastName ?? "",
-          grade: 10,
-          role: isAdminEmail(email) ? "ADMIN" : "STUDENT",
-          avatarUrl: clerkUser.imageUrl ?? null,
-        },
-      });
+      // If a user already exists with this email (e.g. from a different Clerk instance),
+      // update their clerkId rather than creating a duplicate.
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        user = await prisma.user.update({
+          where: { email },
+          data: {
+            clerkId: clerkUserId,
+            avatarUrl: clerkUser.imageUrl ?? existing.avatarUrl,
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            clerkId: clerkUserId,
+            email,
+            firstName: clerkUser.firstName ?? "",
+            lastName: clerkUser.lastName ?? "",
+            grade: 10,
+            role: isAdminEmail(email) ? "ADMIN" : "STUDENT",
+            avatarUrl: clerkUser.imageUrl ?? null,
+          },
+        });
+      }
     }
 
     req.userId = user.id;
