@@ -12,16 +12,15 @@ import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 export function FindTutorPage() {
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
+
   const [bookTarget, setBookTarget] = useState<TutorProfileDTO | null>(null);
 
   const { data: tutors, isLoading } = useQuery({
-    queryKey: ["tutors", search, subjectFilter, gradeFilter],
+    queryKey: ["tutors", search, subjectFilter],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (subjectFilter) params.set("subjectId", subjectFilter);
-      if (gradeFilter) params.set("grade", gradeFilter);
       return api.get<TutorProfileDTO[]>(`/users/tutors?${params.toString()}`);
     },
   });
@@ -31,7 +30,7 @@ export function FindTutorPage() {
     queryFn: () => api.get<SubjectDTO[]>("/subjects"),
   });
 
-  const hasFilters = search || subjectFilter || gradeFilter;
+  const hasFilters = search || subjectFilter;
 
   return (
     <div className="space-y-6">
@@ -62,20 +61,9 @@ export function FindTutorPage() {
             includeAllOption
             className="flex-1 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
-          <select
-            value={gradeFilter}
-            onChange={(e) => setGradeFilter(e.target.value)}
-            className="w-32 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">All Grades</option>
-            <option value="9">9th</option>
-            <option value="10">10th</option>
-            <option value="11">11th</option>
-            <option value="12">12th</option>
-          </select>
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setSubjectFilter(""); setGradeFilter(""); }}
+              onClick={() => { setSearch(""); setSubjectFilter(""); }}
               className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
             >
               <X className="h-3.5 w-3.5" /> Clear
@@ -97,7 +85,7 @@ export function FindTutorPage() {
           action={
             hasFilters ? (
               <button
-                onClick={() => { setSearch(""); setSubjectFilter(""); setGradeFilter(""); }}
+                onClick={() => { setSearch(""); setSubjectFilter(""); }}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 Clear Filters
