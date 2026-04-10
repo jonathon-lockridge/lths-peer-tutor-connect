@@ -7,6 +7,7 @@ import { TutorCardSkeleton } from "@/components/shared/LoadingSkeletons";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TutorProfileDTO, SubjectDTO } from "@lths/shared";
 import { RequestModal } from "@/components/requests/RequestModal";
+import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
 export function FindTutorPage() {
   const [search, setSearch] = useState("");
@@ -54,18 +55,13 @@ export function FindTutorPage() {
           />
         </div>
         <div className="flex gap-3">
-          <select
+          <GroupedSubjectSelect
+            subjects={subjects?.data ?? []}
             value={subjectFilter}
-            onChange={(e) => setSubjectFilter(e.target.value)}
+            onChange={setSubjectFilter}
+            includeAllOption
             className="flex-1 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">All Subjects</option>
-            {[...(subjects?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          />
           <select
             value={gradeFilter}
             onChange={(e) => setGradeFilter(e.target.value)}

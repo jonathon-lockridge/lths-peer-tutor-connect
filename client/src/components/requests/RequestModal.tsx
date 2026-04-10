@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { api } from "@/lib/api";
 import { TutorProfileDTO, SubjectDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
+import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
 interface Props {
   tutor: TutorProfileDTO | null;
@@ -23,9 +24,9 @@ export function RequestModal({ tutor, onClose }: Props) {
     enabled: !tutor,
   });
 
-  const subjectOptions = [...(tutor
+  const subjectList = tutor
     ? tutor.tutorSubjects.map((ts) => ts.subject)
-    : subjects?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+    : subjects?.data ?? [];
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -61,16 +62,13 @@ export function RequestModal({ tutor, onClose }: Props) {
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium">Subject</label>
-            <select
+            <GroupedSubjectSelect
+              subjects={subjectList}
               value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
+              onChange={setSubjectId}
+              placeholder="Select a subject..."
               className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Select a subject...</option>
-              {subjectOptions.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>

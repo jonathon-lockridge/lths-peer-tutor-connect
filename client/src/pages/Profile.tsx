@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
+import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
 export function ProfilePage() {
   const qc = useQueryClient();
@@ -302,7 +303,6 @@ function TutorApplyModal({
     onError: (err: Error) => onError(err.message || "Failed to submit application"),
   });
 
-  const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
   const canSubmit = subjectId && evidenceNote.trim().length >= 10 && !!uploadedFile && !uploading && !submitMutation.isPending;
 
   return (
@@ -327,16 +327,13 @@ function TutorApplyModal({
           {/* Subject */}
           <div>
             <label className="mb-1.5 block text-sm font-medium">Subject <span className="text-red-500">*</span></label>
-            <select
+            <GroupedSubjectSelect
+              subjects={subjects}
               value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
+              onChange={setSubjectId}
+              placeholder="Choose a subject…"
               className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Choose a subject…</option>
-              {sortedSubjects.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Grade */}
