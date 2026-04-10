@@ -16,7 +16,9 @@ const updateProfileSchema = z.object({
   phone: z.string().regex(/^[\d\s\-\+\(\)\.]{7,20}$/, "Invalid phone number format").nullable().optional(),
   isTutor: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
-  avatarUrl: z.string().url().nullable().optional(),
+  avatarUrl: z.string()
+    .refine((val) => val.startsWith("data:image/") || /^https?:\/\//.test(val), "Invalid image")
+    .nullable().optional(),
 });
 
 // List tutors (with filters)

@@ -21,6 +21,7 @@ const bookingSchema = z.object({
   subjectId: z.string().min(1),
   scheduledAt: z.string().datetime(),
   note: z.string().max(500).optional(),
+  sessionMode: z.enum(["PHYSICAL", "ONLINE"]).optional(),
 });
 
 /** Helper: resolve the student user ID from a match (works for both direct bookings and request-based) */
@@ -66,13 +67,32 @@ matchesRouter.get("/", async (req: AuthRequest, res: Response, next: NextFunctio
   }
 });
 
+// Get booked (taken) datetimes for a tutor within next 7 days
+matchesRouter.get("/booked/:tutorId", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const now = new Date();
+    const sevenDaysOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const booked = await prisma.match.findMany({
+      where: {
+        tutorId: req.params.tutorId,
+        scheduledAt: { gte: now, lte: sevenDaysOut },
+        status: { notIn: ["CANCELLED", "DECLINED"] },
+      },
+      select: { scheduledAt: true },
+    });
+    res.json({ success: true, data: booked.map((m) => m.scheduledAt) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Direct booking from student (no TutoringRequest required)
 matchesRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const parsed = bookingSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(400, parsed.error.errors[0].message);
 
-    const { tutorId, subjectId, scheduledAt, note } = parsed.data;
+    const { tutorId, subjectId, scheduledAt, note, sessionMode: sessionModeInput } = parsed.data;
 
     if (tutorId === req.userId) throw new AppError(400, "You cannot book yourself");
 
@@ -96,9 +116,20 @@ matchesRouter.post("/", async (req: AuthRequest, res: Response, next: NextFuncti
     const slots = await prisma.tutorAvailability.findMany({
       where: { userId: tutorId, dayOfWeek },
     });
-    const withinSlot = slots.some((s) => hhmm >= s.startTime && hhmm < s.endTime);
-    if (!withinSlot) {
+    const matchingSlot = slots.find((s) => hhmm >= s.startTime && hhmm < s.endTime);
+    if (!matchingSlot) {
       throw new AppError(400, "Selected time is outside the tutor's availability");
+    }
+
+    // Determine session mode from the slot's tutoring mode
+    let sessionMode: string;
+    if (matchingSlot.mode === "EITHER") {
+      if (!sessionModeInput) {
+        throw new AppError(400, "Please select In-Person or Online for this session");
+      }
+      sessionMode = sessionModeInput;
+    } else {
+      sessionMode = matchingSlot.mode;
     }
 
     // Booking must be within 7 days
@@ -108,6 +139,18 @@ matchesRouter.post("/", async (req: AuthRequest, res: Response, next: NextFuncti
       throw new AppError(400, "Booking must be within the next 7 days");
     }
 
+    // Slot exclusivity — only one active booking per (tutor, scheduledAt)
+    const conflict = await prisma.match.findFirst({
+      where: {
+        tutorId,
+        scheduledAt: scheduledDate,
+        status: { notIn: ["CANCELLED", "DECLINED"] },
+      },
+    });
+    if (conflict) {
+      throw new AppError(409, "This time slot is already taken. Please choose a different time.");
+    }
+
     const match = await prisma.match.create({
       data: {
         tutorId,
@@ -115,6 +158,7 @@ matchesRouter.post("/", async (req: AuthRequest, res: Response, next: NextFuncti
         subjectId,
         note: note ?? null,
         scheduledAt: scheduledDate,
+        sessionMode,
         status: "PENDING",
       },
     });
@@ -284,6 +328,61 @@ matchesRouter.post("/:id/decline", async (req: AuthRequest, res: Response, next:
         "/find-tutor"
       );
     }
+
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Cancel a match — student only, > 2 hours before scheduledAt
+matchesRouter.post("/:id/cancel", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      include: {
+        request: { include: { subject: true } },
+        subject: true,
+        tutor: { select: { firstName: true, lastName: true } },
+      },
+    });
+    if (!match) throw new AppError(404, "Match not found");
+
+    const studentId = getStudentId(match);
+    if (studentId !== req.userId) throw new AppError(403, "Only the student can cancel this booking");
+
+    if (!["PENDING", "ACCEPTED"].includes(match.status)) {
+      throw new AppError(400, "This booking cannot be cancelled");
+    }
+
+    if (match.scheduledAt) {
+      const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      if (match.scheduledAt <= twoHoursFromNow) {
+        throw new AppError(400, "Cannot cancel within 2 hours of the scheduled session");
+      }
+    }
+
+    await prisma.match.update({
+      where: { id: req.params.id },
+      data: { status: "CANCELLED" },
+    });
+
+    if (match.requestId) {
+      await prisma.tutoringRequest.update({
+        where: { id: match.requestId },
+        data: { status: "OPEN" },
+      });
+    }
+
+    const subjectName = match.request?.subject?.name ?? match.subject?.name ?? "tutoring";
+    const tutorName = match.tutor ? `${match.tutor.firstName} ${match.tutor.lastName}` : "your student";
+    await createNotification(
+      match.tutorId,
+      "MATCH_DECLINED",
+      "Session cancelled by student",
+      `A student cancelled their ${subjectName} booking with you.`,
+      "/sessions"
+    );
 
     res.json({ success: true });
   } catch (err) {

@@ -22,7 +22,7 @@ availabilityRouter.get("/:userId", async (req: AuthRequest, res: Response, next:
 // Add an availability slot (tutor only)
 availabilityRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { dayOfWeek, startTime, endTime } = req.body;
+    const { dayOfWeek, startTime, endTime, mode } = req.body;
     if (dayOfWeek === undefined || !startTime || !endTime) {
       return res.status(400).json({ success: false, error: "dayOfWeek, startTime, endTime required" });
     }
@@ -37,8 +37,10 @@ availabilityRouter.post("/", async (req: AuthRequest, res: Response, next: NextF
     if (startTime >= endTime) {
       return res.status(400).json({ success: false, error: "startTime must be before endTime" });
     }
+    const allowedModes = ["PHYSICAL", "ONLINE", "EITHER"];
+    const slotMode = allowedModes.includes(mode) ? mode : "EITHER";
     const slot = await prisma.tutorAvailability.create({
-      data: { userId: req.userId!, dayOfWeek, startTime, endTime },
+      data: { userId: req.userId!, dayOfWeek, startTime, endTime, mode: slotMode },
     });
     res.status(201).json({ success: true, data: slot });
   } catch (err: any) {

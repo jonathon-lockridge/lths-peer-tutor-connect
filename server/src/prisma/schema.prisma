@@ -38,6 +38,13 @@ enum MatchStatus {
   DECLINED
   COMPLETED
   NO_SHOW
+  CANCELLED
+}
+
+enum TutoringMode {
+  PHYSICAL
+  ONLINE
+  EITHER
 }
 
 enum UserRole {
@@ -184,6 +191,7 @@ model Match {
   scheduledAt DateTime?
   location    String?
   meetingUrl  String?     // Jitsi Meet link auto-generated on accept
+  sessionMode String?     // "PHYSICAL" | "ONLINE" — set at booking time from availability slot mode
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -269,12 +277,13 @@ model Notification {
 }
 
 model TutorAvailability {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  dayOfWeek Int      // 0=Sun, 1=Mon, ..., 6=Sat
-  startTime String   // "HH:MM" 24h
-  endTime   String   // "HH:MM" 24h
-  createdAt DateTime @default(now())
+  dayOfWeek Int          // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime String       // "HH:MM" 24h
+  endTime   String       // "HH:MM" 24h
+  mode      TutoringMode @default(EITHER)
+  createdAt DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Video, KeyRound, Star } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Video, KeyRound, Star, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { SessionDTO, UserDTO } from "@lths/shared";
-import { formatDate, formatMinutes } from "@/lib/utils";
+import { SessionDTO, UserDTO, MatchDTO } from "@lths/shared";
+import { formatDate, formatDateTime, formatMinutes } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 
 type View = "list" | "calendar";
+
+const SESSION_MODE_BADGE: Record<string, string> = {
+  PHYSICAL: "📍 In-Person",
+  ONLINE: "💻 Online",
+};
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function dateKey(y: number, m: number, d: number) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
@@ -23,9 +28,23 @@ export function MySessionsPage() {
     queryFn: () => api.get<SessionDTO[]>("/sessions"),
   });
 
+  const { data: matchesData } = useQuery({
+    queryKey: ["matches", "tutee"],
+    queryFn: () => api.get<MatchDTO[]>("/matches?role=tutee"),
+  });
+
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<UserDTO>("/auth/me"),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (matchId: string) => api.post(`/matches/${matchId}/cancel`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matches"] });
+      toast.success("Booking cancelled.");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not cancel booking"),
   });
 
   const confirmMutation = useMutation({
@@ -39,9 +58,19 @@ export function MySessionsPage() {
   });
 
   const sessions = data?.data ?? [];
+  const allMatches = matchesData?.data ?? [];
   const currentUserId = me?.data?.id;
   const today = new Date();
   const todayStr = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Upcoming bookings: PENDING or ACCEPTED matches with a future scheduledAt
+  const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const upcomingBookings = allMatches.filter(
+    (m) =>
+      (m.status === "PENDING" || m.status === "ACCEPTED") &&
+      m.scheduledAt &&
+      new Date(m.scheduledAt) > today
+  );
 
   const upcoming = sessions.filter((s) => s.date.slice(0, 10) >= todayStr);
   const past = sessions.filter((s) => s.date.slice(0, 10) < todayStr);
@@ -75,6 +104,84 @@ export function MySessionsPage() {
         </div>
       </div>
 
+      {/* Upcoming bookings (PENDING / ACCEPTED matches) */}
+      {upcomingBookings.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Upcoming Bookings
+          </h2>
+          <div className="space-y-3">
+            {upcomingBookings.map((m) => {
+              const subjectName = m.request?.subject?.name ?? m.subject?.name ?? "Session";
+              const canCancel = !!m.scheduledAt && new Date(m.scheduledAt) > twoHoursFromNow;
+              return (
+                <div key={m.id} className="rounded-xl border bg-card p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">{subjectName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        with {m.tutor.firstName} {m.tutor.lastName}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {m.sessionMode && SESSION_MODE_BADGE[m.sessionMode] && (
+                        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                          {SESSION_MODE_BADGE[m.sessionMode]}
+                        </span>
+                      )}
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        m.status === "ACCEPTED"
+                          ? "bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300"
+                          : "bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300"
+                      }`}>
+                        {m.status === "ACCEPTED" ? "Confirmed" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {m.scheduledAt && (
+                    <div className="mt-3 flex items-center gap-1 text-sm text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{formatDateTime(m.scheduledAt)}</span>
+                    </div>
+                  )}
+
+                  {m.location && m.location !== "TBD" && (
+                    <p className="mt-1 text-sm text-muted-foreground">📍 {m.location}</p>
+                  )}
+
+                  {m.meetingUrl && m.status === "ACCEPTED" && (
+                    <a
+                      href={m.meetingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50"
+                    >
+                      <Video className="h-4 w-4" /> Join Meeting
+                    </a>
+                  )}
+
+                  {m.note && (
+                    <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{m.note}</p>
+                  )}
+
+                  {canCancel && (
+                    <button
+                      onClick={() => cancelMutation.mutate(m.id)}
+                      disabled={cancelMutation.isPending}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel Booking
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -88,13 +195,13 @@ export function MySessionsPage() {
           onConfirm={(id, code) => confirmMutation.mutate({ id, code })}
           confirming={confirmMutation.isPending}
         />
-      ) : sessions.length === 0 ? (
+      ) : sessions.length === 0 && upcomingBookings.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="No sessions yet"
           description="Your tutoring sessions will appear here. Each confirmed session automatically tracks your hours."
         />
-      ) : (
+      ) : sessions.length > 0 ? (
         <ListView
           upcoming={upcoming}
           past={past}
@@ -102,7 +209,7 @@ export function MySessionsPage() {
           onConfirm={(id, code) => confirmMutation.mutate({ id, code })}
           confirming={confirmMutation.isPending}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -250,6 +357,7 @@ function SessionCard({
   // Null-safe helpers for both request-based and direct bookings
   const subjectName = s.match.request?.subject?.name ?? s.match.subject?.name ?? "Session";
   const studentUser = s.match.request?.requester ?? s.match.student;
+  const sessionMode = s.match.sessionMode;
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -261,15 +369,22 @@ function SessionCard({
             {studentUser && <> &amp; {studentUser.firstName} {studentUser.lastName}</>}
           </p>
         </div>
-        {bothConfirmed ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 dark:bg-green-950/40 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300">
-            <CheckCircle2 className="h-3 w-3" /> Confirmed
-          </span>
-        ) : (
-          <span className="shrink-0 rounded-full bg-yellow-100 dark:bg-yellow-950/40 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:text-yellow-300">
-            Pending
-          </span>
-        )}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {sessionMode && SESSION_MODE_BADGE[sessionMode] && (
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {SESSION_MODE_BADGE[sessionMode]}
+            </span>
+          )}
+          {bothConfirmed ? (
+            <span className="flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-950/40 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300">
+              <CheckCircle2 className="h-3 w-3" /> Confirmed
+            </span>
+          ) : (
+            <span className="rounded-full bg-yellow-100 dark:bg-yellow-950/40 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:text-yellow-300">
+              Pending
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">

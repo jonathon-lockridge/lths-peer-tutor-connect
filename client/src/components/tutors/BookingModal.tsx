@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api } from "@/lib/api";
+import { fmt12 } from "@/lib/utils";
 import { TutorProfileDTO, TutorAvailabilityDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
@@ -14,12 +15,16 @@ interface Props {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function fmt12(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
-}
+const MODE_LABELS: Record<string, string> = {
+  PHYSICAL: "In-Person",
+  ONLINE: "Online",
+  EITHER: "Either",
+};
+const MODE_ICONS: Record<string, string> = {
+  PHYSICAL: "📍",
+  ONLINE: "💻",
+  EITHER: "↕️",
+};
 
 /** Return next 7 calendar dates (today+1 through today+7) */
 function getNextSevenDays(): Date[] {
@@ -40,6 +45,7 @@ export function BookingModal({ tutor, onClose }: Props) {
   const [subjectId, setSubjectId] = useState(tutor.tutorSubjects[0]?.subjectId ?? "");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TutorAvailabilityDTO | null>(null);
+  const [sessionMode, setSessionMode] = useState<"PHYSICAL" | "ONLINE" | null>(null);
   const [note, setNote] = useState("");
 
   const { data: availabilityData } = useQuery({
@@ -48,6 +54,13 @@ export function BookingModal({ tutor, onClose }: Props) {
   });
   const availability = availabilityData?.data ?? tutor.availability ?? [];
 
+  const { data: bookedData } = useQuery({
+    queryKey: ["booked", tutor.id],
+    queryFn: () => api.get<string[]>(`/matches/booked/${tutor.id}`),
+    enabled: !!tutor.id,
+  });
+  const bookedTimes = new Set((bookedData?.data ?? []).map((t) => new Date(t).toISOString()));
+
   const days = getNextSevenDays();
   const availableDayOfWeeks = new Set(availability.map((s) => s.dayOfWeek));
 
@@ -55,29 +68,56 @@ export function BookingModal({ tutor, onClose }: Props) {
     ? availability.filter((s) => s.dayOfWeek === selectedDate.getDay())
     : [];
 
+  function isSlotTaken(slot: TutorAvailabilityDTO, date: Date): boolean {
+    const d = new Date(date);
+    const [h, m] = slot.startTime.split(":").map(Number);
+    d.setHours(h, m, 0, 0);
+    return bookedTimes.has(d.toISOString());
+  }
+
+  function handleSlotSelect(slot: TutorAvailabilityDTO) {
+    setSelectedSlot(slot);
+    // Auto-set mode if slot is not EITHER
+    if (slot.mode !== "EITHER") {
+      setSessionMode(slot.mode as "PHYSICAL" | "ONLINE");
+    } else {
+      setSessionMode(null);
+    }
+  }
+
   const mutation = useMutation({
     mutationFn: () => {
       if (!selectedDate || !selectedSlot) throw new Error("Pick a date and time slot");
-      // Build ISO datetime in local time with the slot's start hour
+      if (selectedDate && isSlotTaken(selectedSlot, selectedDate)) throw new Error("This slot is already taken");
       const d = new Date(selectedDate);
       const [h, m] = selectedSlot.startTime.split(":").map(Number);
       d.setHours(h, m, 0, 0);
+      const effectiveMode = selectedSlot.mode === "EITHER" ? sessionMode : selectedSlot.mode;
       return api.post("/matches", {
         tutorId: tutor.id,
         subjectId,
         scheduledAt: d.toISOString(),
         note: note.trim() || undefined,
+        sessionMode: effectiveMode,
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["matches"] });
+      qc.invalidateQueries({ queryKey: ["booked", tutor.id] });
       toast.success(`Booking request sent to ${tutor.firstName}!`);
       onClose();
     },
     onError: (e: Error) => toast.error(e.message || "Could not send booking request"),
   });
 
-  const canSubmit = !!subjectId && !!selectedDate && !!selectedSlot && !mutation.isPending;
+  const modeRequired = selectedSlot?.mode === "EITHER";
+  const canSubmit =
+    !!subjectId &&
+    !!selectedDate &&
+    !!selectedSlot &&
+    !(selectedDate && isSlotTaken(selectedSlot, selectedDate)) &&
+    (!modeRequired || !!sessionMode) &&
+    !mutation.isPending;
 
   return (
     <div
@@ -122,7 +162,7 @@ export function BookingModal({ tutor, onClose }: Props) {
                     <button
                       key={d.toDateString()}
                       disabled={!hasSlots}
-                      onClick={() => { setSelectedDate(d); setSelectedSlot(null); }}
+                      onClick={() => { setSelectedDate(d); setSelectedSlot(null); setSessionMode(null); }}
                       className={`flex flex-col items-center rounded-lg py-2 text-xs transition-colors ${
                         isSelected
                           ? "bg-primary text-white"
@@ -147,19 +187,61 @@ export function BookingModal({ tutor, onClose }: Props) {
                 Available times on {DAY_FULL[selectedDate.getDay()]}
               </label>
               <div className="flex flex-wrap gap-2">
-                {slotsForDay.map((slot) => (
-                  <button
-                    key={slot.id}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                      selectedSlot?.id === slot.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    {fmt12(slot.startTime)} – {fmt12(slot.endTime)}
-                  </button>
-                ))}
+                {slotsForDay.map((slot) => {
+                  const taken = isSlotTaken(slot, selectedDate);
+                  const isSelected = selectedSlot?.id === slot.id;
+                  return (
+                    <button
+                      key={slot.id}
+                      onClick={() => !taken && handleSlotSelect(slot)}
+                      disabled={taken}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        taken
+                          ? "cursor-not-allowed border-dashed bg-muted/30 text-muted-foreground/50 line-through"
+                          : isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      <span>{fmt12(slot.startTime)} – {fmt12(slot.endTime)}</span>
+                      <span className="ml-1.5 text-xs opacity-70">
+                        {MODE_ICONS[slot.mode ?? "EITHER"]} {MODE_LABELS[slot.mode ?? "EITHER"]}
+                      </span>
+                      {taken && <span className="ml-1 text-xs">(taken)</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Mode picker — only shown when slot is EITHER */}
+          {selectedSlot?.mode === "EITHER" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                How would you like to meet? <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSessionMode("PHYSICAL")}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                    sessionMode === "PHYSICAL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  📍 In-Person
+                </button>
+                <button
+                  onClick={() => setSessionMode("ONLINE")}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                    sessionMode === "ONLINE"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  💻 Online
+                </button>
               </div>
             </div>
           )}

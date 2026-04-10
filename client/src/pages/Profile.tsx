@@ -4,7 +4,8 @@ import { useRef, useState, useEffect } from "react";
 import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus, TutorAvailabilityDTO } from "@lths/shared";
+import { fmt12 } from "@/lib/utils";
+import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus, TutorAvailabilityDTO, TutoringMode } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
@@ -352,6 +353,18 @@ export function ProfilePage() {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const MODE_OPTIONS: { value: TutoringMode; label: string; icon: string }[] = [
+  { value: "PHYSICAL", label: "In-Person Only", icon: "📍" },
+  { value: "ONLINE", label: "Online Only", icon: "💻" },
+  { value: "EITHER", label: "Either", icon: "↕️" },
+];
+
+const MODE_BADGE: Record<TutoringMode, string> = {
+  PHYSICAL: "In-Person",
+  ONLINE: "Online",
+  EITHER: "Either",
+};
+
 function AvailabilitySection({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -359,6 +372,7 @@ function AvailabilitySection({ userId }: { userId: string }) {
   const [day, setDay] = useState(1);
   const [startTime, setStartTime] = useState("15:00");
   const [endTime, setEndTime] = useState("17:00");
+  const [mode, setMode] = useState<TutoringMode>("EITHER");
 
   const { data, refetch } = useQuery({
     queryKey: ["availability", userId],
@@ -366,10 +380,11 @@ function AvailabilitySection({ userId }: { userId: string }) {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => api.post("/availability", { dayOfWeek: day, startTime, endTime }),
+    mutationFn: () => api.post("/availability", { dayOfWeek: day, startTime, endTime, mode }),
     onSuccess: () => {
       refetch();
       setShowAdd(false);
+      setMode("EITHER");
       toast.success("Slot added!");
     },
     onError: (e: Error) => toast.error(e.message || "Could not add slot"),
@@ -435,6 +450,25 @@ function AvailabilitySection({ userId }: { userId: string }) {
               />
             </div>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium">Session type</label>
+            <div className="flex gap-2">
+              {MODE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setMode(opt.value)}
+                  className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
+                    mode === opt.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "bg-background text-muted-foreground hover:border-primary"
+                  }`}
+                >
+                  {opt.icon} {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => addMutation.mutate()}
@@ -468,7 +502,10 @@ function AvailabilitySection({ userId }: { userId: string }) {
                     key={slot.id}
                     className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5"
                   >
-                    <span className="text-sm">{slot.startTime} – {slot.endTime}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{fmt12(slot.startTime)} – {fmt12(slot.endTime)}</span>
+                      <span className="text-xs text-muted-foreground">{MODE_BADGE[slot.mode ?? "EITHER"]}</span>
+                    </div>
                     <button
                       onClick={() => deleteMutation.mutate(slot.id)}
                       disabled={deleteMutation.isPending}
@@ -546,18 +583,20 @@ function TutorApplyModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const CONFIDENCE_LABELS = ["", "Beginner", "Developing", "Comfortable", "Strong", "Expert"];
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { onError("File must be under 5 MB"); return; }
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setUploadedFile({ name: file.name, dataUrl: reader.result as string });
+    try {
+      // Resize to max 600px — keeps grade text legible while staying well under the server's JSON limit
+      const dataUrl = await resizeImageToBase64(file, 600);
+      setUploadedFile({ name: file.name, dataUrl });
+    } catch {
+      onError("Could not read file");
+    } finally {
       setUploading(false);
-    };
-    reader.onerror = () => { onError("Could not read file"); setUploading(false); };
-    reader.readAsDataURL(file);
+    }
   };
 
   const submitMutation = useMutation({

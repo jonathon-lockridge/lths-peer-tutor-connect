@@ -34,7 +34,10 @@ export type MatchStatus =
   | "ACCEPTED"
   | "DECLINED"
   | "COMPLETED"
-  | "NO_SHOW";
+  | "NO_SHOW"
+  | "CANCELLED";
+
+export type TutoringMode = "PHYSICAL" | "ONLINE" | "EITHER";
 
 export type UserRole = "STUDENT" | "ADMIN";
 
@@ -78,6 +81,7 @@ export interface TutorAvailabilityDTO {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  mode: TutoringMode;
 }
 
 export interface TutorBadgeDTO {
@@ -123,6 +127,7 @@ export interface MatchDTO {
   scheduledAt?: string | null;
   location?: string | null;
   meetingUrl?: string | null;
+  sessionMode?: string | null;
   createdAt: string;
   updatedAt: string;
 }
