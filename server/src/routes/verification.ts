@@ -98,7 +98,10 @@ verificationRouter.get("/pending", requireAdmin, async (_req: AuthRequest, res: 
   }
 });
 
-const reviewSchema = z.object({ reviewNote: z.string().max(500).optional() });
+const reviewSchema = z.object({
+  reviewNote: z.string().max(500).optional(),
+  selfRatingOverride: z.number().int().min(1).max(5).optional(),
+});
 
 // Admin: approve a verification
 verificationRouter.post("/:id/approve", requireAdmin, async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -113,16 +116,18 @@ verificationRouter.post("/:id/approve", requireAdmin, async (req: AuthRequest, r
     if (!verification) throw new AppError(404, "Verification not found");
     if (verification.status !== "PENDING") throw new AppError(409, "Already reviewed");
 
+    const finalRating = parsed.data.selfRatingOverride ?? verification.selfRating;
+
     await prisma.$transaction([
       prisma.tutorVerification.update({
         where: { id: req.params.id },
         data: { status: "APPROVED", reviewedBy: req.userId, reviewNote: parsed.data.reviewNote ?? null },
       }),
-      // Upsert the TutorSubject — preserve existing selfRating if already set, otherwise use applicant's chosen rating
+      // Upsert the TutorSubject using admin's override or student's submitted rating
       prisma.tutorSubject.upsert({
         where: { userId_subjectId: { userId: verification.userId, subjectId: verification.subjectId } },
-        update: {},
-        create: { userId: verification.userId, subjectId: verification.subjectId, selfRating: verification.selfRating },
+        update: { selfRating: finalRating },
+        create: { userId: verification.userId, subjectId: verification.subjectId, selfRating: finalRating },
       }),
       // Set isTutor = true
       prisma.user.update({

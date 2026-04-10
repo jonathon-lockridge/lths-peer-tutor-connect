@@ -45,9 +45,10 @@ interface ConversationsResponse {
 }
 
 function Avatar({ user, size = "sm" }: { user: MsgUser; size?: "sm" | "md" }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const sz = size === "sm" ? "h-9 w-9 text-sm" : "h-10 w-10 text-base";
-  return user.avatarUrl ? (
-    <img src={user.avatarUrl} className={`${sz} rounded-full object-cover`} alt="" />
+  return user.avatarUrl && !imgFailed ? (
+    <img src={user.avatarUrl} className={`${sz} rounded-full object-cover`} alt="" onError={() => setImgFailed(true)} />
   ) : (
     <div className={`${sz} flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-white`}>
       {user.firstName[0]}{user.lastName?.[0] ?? ""}

@@ -76,6 +76,23 @@ authRouter.post("/webhook", async (req: Request, res: Response, next: NextFuncti
       });
     }
 
+    if (payload.type === "user.updated") {
+      const data = payload.data as {
+        id: string;
+        image_url?: string;
+        first_name?: string;
+        last_name?: string;
+      };
+      await prisma.user.updateMany({
+        where: { clerkId: data.id },
+        data: {
+          ...(data.image_url !== undefined ? { avatarUrl: data.image_url } : {}),
+          ...(data.first_name ? { firstName: data.first_name } : {}),
+          ...(data.last_name ? { lastName: data.last_name } : {}),
+        },
+      });
+    }
+
     if (payload.type === "user.deleted") {
       const data = payload.data as { id: string };
       await prisma.user.deleteMany({ where: { clerkId: data.id } });

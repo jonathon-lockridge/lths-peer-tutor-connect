@@ -3,10 +3,34 @@ import { UserButton } from "@clerk/clerk-react";
 import { useRef, useState, useEffect } from "react";
 import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { api, getAuthToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus, TutorAvailabilityDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
+
+/** Resize an image file to maxSize×maxSize, return base64 JPEG data URL */
+function resizeImageToBase64(file: File, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not decode image"));
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 export function ProfilePage() {
   const qc = useQueryClient();
@@ -61,21 +85,12 @@ export function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10 MB"); return; }
     setAvatarUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const token = await getAuthToken();
-      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "")}/api/upload`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
-      await updateMutation.mutateAsync({ avatarUrl: json.data.url });
+      // Resize to max 240px and encode as base64 JPEG — stored directly in DB (no file server needed)
+      const dataUrl = await resizeImageToBase64(file, 240);
+      await updateMutation.mutateAsync({ avatarUrl: dataUrl });
       toast.success("Profile picture updated!");
     } catch (err: any) {
       toast.error(err.message ?? "Failed to upload image");

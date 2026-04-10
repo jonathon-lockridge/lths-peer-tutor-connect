@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, Clock } from "lucide-react";
 import { TutorProfileDTO, SubjectCategory, BadgeType } from "@lths/shared";
@@ -27,15 +28,17 @@ const BADGE_STYLES: Record<BadgeType, { label: string; className: string }> = {
 export function TutorCard({ tutor, onBook }: TutorCardProps) {
   const initials = `${tutor.firstName[0]}${tutor.lastName[0]}`;
   const badges = tutor.badges ?? [];
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
       <div className="flex items-start gap-4">
-        {tutor.avatarUrl ? (
+        {tutor.avatarUrl && !imgFailed ? (
           <img
             src={tutor.avatarUrl}
             alt={`${tutor.firstName} ${tutor.lastName}`}
             className="h-12 w-12 rounded-full object-cover"
+            onError={() => setImgFailed(true)}
           />
         ) : (
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">

@@ -1,11 +1,11 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, Clock, ArrowLeft } from "lucide-react";
+import { Star, Clock, ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { BookingModal } from "@/components/tutors/BookingModal";
-import { TutorProfileDTO, BadgeType } from "@lths/shared";
+import { TutorProfileDTO, BadgeType, UserDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 
 const BADGE_STYLES: Record<BadgeType, { label: string; className: string }> = {
@@ -38,6 +38,7 @@ interface FullTutorProfile extends TutorProfileDTO {
 export function TutorProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [showBook, setShowBook] = useState(false);
+  const [headerImgFailed, setHeaderImgFailed] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tutor", id],
@@ -50,6 +51,12 @@ export function TutorProfilePage() {
     queryFn: () => api.get<CanReviewResponse>(`/reviews/can-review/${id}`),
     enabled: !!id,
   });
+
+  const { data: meData } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.get<UserDTO>("/auth/me"),
+  });
+  const isAdmin = meData?.data?.role === "ADMIN";
 
   if (isLoading) {
     return (
@@ -83,8 +90,8 @@ export function TutorProfilePage() {
       {/* Header */}
       <div className="rounded-2xl border bg-card p-6">
         <div className="flex items-start gap-5">
-          {tutor.avatarUrl ? (
-            <img src={tutor.avatarUrl} className="h-20 w-20 rounded-full object-cover" alt="" />
+          {tutor.avatarUrl && !headerImgFailed ? (
+            <img src={tutor.avatarUrl} className="h-20 w-20 rounded-full object-cover" alt="" onError={() => setHeaderImgFailed(true)} />
           ) : (
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white">
               {tutor.firstName[0]}{tutor.lastName[0]}
@@ -156,21 +163,12 @@ export function TutorProfilePage() {
         ) : (
           <div className="space-y-4">
             {tutor.recentReviews.map((r) => (
-              <div key={r.id} className="border-b pb-4 last:border-b-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{r.reviewer.firstName} {r.reviewer.lastName}</p>
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star
-                        key={i}
-                        className={`h-3.5 w-3.5 ${i <= r.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                {r.comment && <p className="mt-1 text-sm text-muted-foreground">{r.comment}</p>}
-                <p className="mt-1 text-xs text-muted-foreground">{formatDate(r.createdAt)}</p>
-              </div>
+              <ReviewRow
+                key={r.id}
+                review={r}
+                tutorId={tutor.id}
+                isAdmin={isAdmin}
+              />
             ))}
           </div>
         )}
@@ -202,6 +200,74 @@ export function TutorProfilePage() {
       {showBook && (
         <BookingModal tutor={tutor} onClose={() => setShowBook(false)} />
       )}
+    </div>
+  );
+}
+
+// ── Individual Review Row ─────────────────────────────────────────────────────
+function ReviewRow({
+  review,
+  tutorId,
+  isAdmin,
+}: {
+  review: FullTutorProfile["recentReviews"][number];
+  tutorId: string;
+  isAdmin: boolean;
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/reviews/${review.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tutor", tutorId] });
+      toast.success("Review removed.");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not delete review"),
+  });
+
+  return (
+    <div className="border-b pb-4 last:border-b-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {review.reviewer.avatarUrl && !avatarFailed ? (
+            <img
+              src={review.reviewer.avatarUrl}
+              alt=""
+              className="h-7 w-7 rounded-full object-cover shrink-0"
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+              {review.reviewer.firstName[0]}{review.reviewer.lastName?.[0] ?? ""}
+            </div>
+          )}
+          <p className="text-sm font-medium truncate">{review.reviewer.firstName} {review.reviewer.lastName}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Star
+                key={i}
+                className={`h-3.5 w-3.5 ${i <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`}
+              />
+            ))}
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              title="Remove review (admin)"
+              className="ml-1 rounded p-0.5 text-muted-foreground hover:text-red-600 disabled:opacity-40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+      {review.comment && <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>}
+      <p className="mt-1 text-xs text-muted-foreground">{formatDate(review.createdAt)}</p>
     </div>
   );
 }

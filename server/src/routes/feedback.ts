@@ -43,3 +43,15 @@ feedbackRouter.get("/", requireAdmin, async (_req: AuthRequest, res: Response, n
     next(err);
   }
 });
+
+// Admin: delete a feedback entry
+feedbackRouter.delete("/:id", requireAdmin, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const f = await prisma.appFeedback.findUnique({ where: { id: req.params.id } });
+    if (!f) throw new AppError(404, "Feedback not found");
+    await prisma.appFeedback.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});

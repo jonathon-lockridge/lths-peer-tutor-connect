@@ -119,13 +119,18 @@ reviewsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFuncti
   }
 });
 
-// Delete own review (allows re-reviewing the same tutor)
+// Delete a review — owner can delete their own; admin can delete any
 reviewsRouter.delete("/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const review = await prisma.review.findUnique({ where: { id: req.params.id } });
-    if (!review || review.reviewerId !== req.userId) {
-      throw new AppError(404, "Review not found");
+    if (!review) throw new AppError(404, "Review not found");
+
+    const isOwner = review.reviewerId === req.userId;
+    if (!isOwner) {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { role: true } });
+      if (currentUser?.role !== "ADMIN") throw new AppError(403, "Not authorized");
     }
+
     const tutorId = review.tutorId;
     await prisma.review.delete({ where: { id: req.params.id } });
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { TutorVerificationDTO, TutorProfileDTO } from "@lths/shared";
@@ -220,13 +220,11 @@ export function AdminPage() {
           </div>
           <div className="space-y-3">
             {feedbackList.map((f) => (
-              <div key={f.id} className="rounded-lg border bg-muted p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium">{f.user.firstName} {f.user.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(f.createdAt).toLocaleDateString()}</p>
-                </div>
-                <p className="text-sm text-muted-foreground">{f.body}</p>
-              </div>
+              <FeedbackCard
+                key={f.id}
+                feedback={f}
+                onDeleted={() => qc.invalidateQueries({ queryKey: ["admin-feedback"] })}
+              />
             ))}
           </div>
         </div>
@@ -236,6 +234,8 @@ export function AdminPage() {
 }
 
 // ── Confidence level editor ───────────────────────────────────────────────────
+
+const CONFIDENCE_LABELS = ["", "Beginner", "Developing", "Comfortable", "Strong", "Expert"];
 
 function ConfidenceEditor({
   tutorSubjectId,
@@ -251,16 +251,44 @@ function ConfidenceEditor({
   onSaved: () => void;
 }) {
   const toast = useToast();
+  const [editing, setEditing] = useState(false);
   const [rating, setRating] = useState(currentRating);
 
   const mutation = useMutation({
     mutationFn: (r: number) => api.patch(`/admin/tutor-subjects/${tutorSubjectId}`, { selfRating: r }),
-    onSuccess: () => { toast.success(`Updated ${tutorName} — ${subjectName} to ${rating}/5`); onSaved(); },
+    onSuccess: () => {
+      toast.success(`Updated ${tutorName} — ${subjectName} to ${rating}/5`);
+      setEditing(false);
+      onSaved();
+    },
     onError: (e: Error) => toast.error(e.message || "Failed to update"),
   });
 
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 px-4 py-2.5">
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{tutorName}</p>
+          <p className="text-xs text-muted-foreground truncate">{subjectName}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+            {currentRating}/5 · {CONFIDENCE_LABELS[currentRating]}
+          </span>
+          <button
+            onClick={() => { setRating(currentRating); setEditing(true); }}
+            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="Edit confidence"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 px-4 py-2.5">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-primary/30 bg-muted/30 px-4 py-2.5">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{tutorName}</p>
         <p className="text-xs text-muted-foreground truncate">{subjectName}</p>
@@ -286,7 +314,48 @@ function ConfidenceEditor({
         >
           {mutation.isPending ? "…" : "Save"}
         </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted"
+        >
+          Cancel
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ── Feedback card with delete ─────────────────────────────────────────────────
+
+function FeedbackCard({ feedback, onDeleted }: { feedback: FeedbackEntry; onDeleted: () => void }) {
+  const toast = useToast();
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/feedback/${feedback.id}`),
+    onSuccess: () => { toast.success("Feedback removed."); onDeleted(); },
+    onError: (e: Error) => toast.error(e.message || "Failed to delete"),
+  });
+
+  return (
+    <div className="rounded-lg border bg-muted p-3">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div>
+          <p className="text-sm font-medium">{feedback.user.firstName} {feedback.user.lastName}</p>
+          <p className="text-xs text-muted-foreground">{feedback.user.email}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <p className="text-xs text-muted-foreground">{new Date(feedback.createdAt).toLocaleDateString()}</p>
+          <button
+            onClick={() => deleteMutation.mutate()}
+            disabled={deleteMutation.isPending}
+            title="Delete feedback"
+            className="rounded p-1 text-muted-foreground hover:text-red-600 disabled:opacity-40"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground">{feedback.body}</p>
     </div>
   );
 }
@@ -307,9 +376,10 @@ function VerificationReviewCard({
   const [expanded, setExpanded] = useState(true);
   const [rejectNote, setRejectNote] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [approveRating, setApproveRating] = useState(verification.selfRating ?? 3);
 
   const approveMutation = useMutation({
-    mutationFn: () => api.post(`/verification/${verification.id}/approve`, {}),
+    mutationFn: () => api.post(`/verification/${verification.id}/approve`, { selfRatingOverride: approveRating }),
     onSuccess: onApproved,
     onError: (err: Error) => onError(err.message || "Failed to approve"),
   });
@@ -392,6 +462,26 @@ function VerificationReviewCard({
           )}
         </div>
       )}
+
+      {/* Confidence level for approval */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-muted-foreground">Set confidence level:</span>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              onClick={() => setApproveRating(i)}
+              title={CONFIDENCE_LABELS[i]}
+              className={`h-7 w-7 rounded text-xs font-semibold transition-colors ${
+                approveRating === i ? "bg-primary text-white" : "border bg-background text-muted-foreground hover:border-primary"
+              }`}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-muted-foreground">{CONFIDENCE_LABELS[approveRating]}</span>
+      </div>
 
       {/* Actions */}
       {!showRejectForm ? (
