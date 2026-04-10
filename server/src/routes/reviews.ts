@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from "express";
 import { prisma } from "../utils/prisma";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
+import { checkAndAwardTopRated } from "./badges";
 import { z } from "zod";
 
 export const reviewsRouter = Router();
@@ -9,7 +10,7 @@ export const reviewsRouter = Router();
 reviewsRouter.use(requireAuth);
 
 const createSchema = z.object({
-  sessionId: z.string().min(1),
+  tutorId: z.string().min(1),
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(300).optional(),
 });
@@ -18,10 +19,9 @@ const createSchema = z.object({
 reviewsRouter.get("/tutor/:tutorId", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const reviews = await prisma.review.findMany({
-      where: { session: { match: { tutorId: req.params.tutorId } } },
+      where: { tutorId: req.params.tutorId },
       include: {
         reviewer: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        session: { select: { date: true, durationMinutes: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -31,78 +31,110 @@ reviewsRouter.get("/tutor/:tutorId", async (req: AuthRequest, res: Response, nex
   }
 });
 
-// Sessions current user can still review for a given tutor (confirmed, no review yet)
-reviewsRouter.get("/reviewable/:tutorId", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Check if current user can review a given tutor
+reviewsRouter.get("/can-review/:tutorId", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const sessions = await prisma.session.findMany({
-      where: {
-        tutorConfirmed: true,
-        tuteeConfirmed: true,
-        match: {
-          tutorId: req.params.tutorId,
-          request: { requesterId: req.userId },
-        },
-        reviews: { none: { reviewerId: req.userId } },
-      },
-      include: {
-        match: { include: { request: { include: { subject: true } } } },
-      },
-      orderBy: { date: "desc" },
+    const tutorId = req.params.tutorId;
+
+    // Check for existing review
+    const existing = await prisma.review.findFirst({
+      where: { tutorId, reviewerId: req.userId },
     });
 
-    const result = sessions.map((s) => ({
-      sessionId: s.id,
-      subjectName: s.match.request.subject.name,
-      date: s.date,
-    }));
+    if (existing) {
+      return res.json({ success: true, data: { canReview: false, hasReviewed: true, existingReview: existing } });
+    }
 
-    res.json({ success: true, data: result });
+    // Must have at least 1 fully confirmed match with this tutor where scheduledAt is in the past
+    const eligibleMatch = await prisma.match.findFirst({
+      where: {
+        tutorId,
+        OR: [{ studentId: req.userId }, { request: { requesterId: req.userId } }],
+        status: { in: ["ACCEPTED", "COMPLETED"] },
+        scheduledAt: { lt: new Date() },
+        sessions: { some: { tutorConfirmed: true, tuteeConfirmed: true } },
+      },
+    });
+
+    res.json({ success: true, data: { canReview: !!eligibleMatch, hasReviewed: false } });
   } catch (err) {
     next(err);
   }
 });
 
-// Create a review
+// Create a review (one per tutor per student, rating required)
 reviewsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(400, parsed.error.errors[0].message);
 
-    const session = await prisma.session.findUnique({
-      where: { id: parsed.data.sessionId },
-      include: { match: { include: { request: true } } },
+    const { tutorId, rating, comment } = parsed.data;
+
+    if (tutorId === req.userId) throw new AppError(400, "You cannot review yourself");
+
+    // Verify tutor exists
+    const tutor = await prisma.user.findUnique({ where: { id: tutorId }, select: { id: true, isTutor: true } });
+    if (!tutor || !tutor.isTutor) throw new AppError(404, "Tutor not found");
+
+    // Must have at least 1 fully confirmed match with this tutor where scheduledAt is past
+    const eligibleMatch = await prisma.match.findFirst({
+      where: {
+        tutorId,
+        OR: [{ studentId: req.userId }, { request: { requesterId: req.userId } }],
+        status: { in: ["ACCEPTED", "COMPLETED"] },
+        scheduledAt: { lt: new Date() },
+        sessions: { some: { tutorConfirmed: true, tuteeConfirmed: true } },
+      },
     });
-    if (!session) throw new AppError(404, "Session not found");
-
-    // Only tutee can review
-    if (session.match.request.requesterId !== req.userId) {
-      throw new AppError(403, "Only the tutee can leave a review");
+    if (!eligibleMatch) {
+      throw new AppError(403, "You must complete a session with this tutor before reviewing");
     }
 
-    // Session must be fully confirmed
-    if (!session.tutorConfirmed || !session.tuteeConfirmed) {
-      throw new AppError(400, "Session must be fully confirmed before reviewing");
-    }
-
-    // No duplicate reviews
+    // Enforce one review per tutor per student
     const existing = await prisma.review.findFirst({
-      where: { sessionId: parsed.data.sessionId, reviewerId: req.userId },
+      where: { tutorId, reviewerId: req.userId },
     });
-    if (existing) throw new AppError(409, "You already reviewed this session");
+    if (existing) {
+      throw new AppError(409, "You already reviewed this tutor. Delete your review to submit a new one.");
+    }
 
     const review = await prisma.review.create({
       data: {
-        sessionId: parsed.data.sessionId,
+        tutorId,
         reviewerId: req.userId!,
-        rating: parsed.data.rating,
-        comment: parsed.data.comment,
+        rating,
+        comment: comment ?? null,
       },
       include: {
         reviewer: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
     });
 
+    // Re-evaluate TOP_RATED badge
+    await checkAndAwardTopRated(tutorId);
+
     res.status(201).json({ success: true, data: review });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete own review (allows re-reviewing the same tutor)
+reviewsRouter.delete("/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const review = await prisma.review.findUnique({ where: { id: req.params.id } });
+    if (!review || review.reviewerId !== req.userId) {
+      throw new AppError(404, "Review not found");
+    }
+    const tutorId = review.tutorId;
+    await prisma.review.delete({ where: { id: req.params.id } });
+
+    // Re-evaluate TOP_RATED badge after deletion
+    if (tutorId) {
+      await checkAndAwardTopRated(tutorId);
+    }
+
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

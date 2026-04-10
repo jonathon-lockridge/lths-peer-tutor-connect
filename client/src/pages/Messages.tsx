@@ -27,10 +27,15 @@ interface Conversation {
   tutorId: string;
   unreadCount: number;
   tutor: MsgUser;
-  request: {
+  // Direct booking fields
+  studentId?: string | null;
+  student?: MsgUser | null;
+  subject?: { name: string } | null;
+  // Request-based booking fields
+  request?: {
     subject: { name: string };
     requester: MsgUser;
-  };
+  } | null;
   messages: (Message & { sender: { firstName: string } })[];
 }
 
@@ -90,9 +95,12 @@ export function MessagesPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card">
           {conversations.map((c, i) => {
-            // Show the OTHER person — if I'm the tutor, show requester; otherwise show tutor
-            const otherUser = c.tutorId === currentUserId ? c.request.requester : c.tutor;
+            // Resolve the other party — handles both request-based and direct bookings
+            const studentUser = c.request?.requester ?? c.student;
+            const otherUser = c.tutorId === currentUserId ? studentUser : c.tutor;
+            const subjectName = c.request?.subject?.name ?? c.subject?.name ?? "Session";
             const latest = c.messages[0];
+            if (!otherUser) return null;
             return (
               <button
                 key={c.id}
@@ -114,7 +122,7 @@ export function MessagesPage() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
-                    {c.request.subject.name}
+                    {subjectName}
                     {latest ? ` · ${latest.sender.firstName}: ${latest.body.slice(0, 40)}` : ""}
                   </p>
                 </div>
@@ -161,9 +169,11 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
   const messages = data?.data?.messages ?? [];
   const currentUserId = data?.data?.currentUserId;
 
+  const studentUser = match?.request?.requester ?? match?.student ?? null;
   const otherUser = match
-    ? (match.tutor.id === currentUserId ? match.request.requester : match.tutor)
+    ? (match.tutor.id === currentUserId ? studentUser : match.tutor)
     : null;
+  const subjectName = match?.request?.subject?.name ?? match?.subject?.name ?? "Session";
 
   function handleSend() {
     const trimmed = text.trim();
@@ -189,7 +199,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
         {otherUser && <Avatar user={otherUser} size="md" />}
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">{otherUser?.firstName} {otherUser?.lastName}</p>
-          <p className="text-xs text-muted-foreground">{match.request.subject.name}</p>
+          <p className="text-xs text-muted-foreground">{subjectName}</p>
         </div>
         {otherUser?.phone && (
           <a

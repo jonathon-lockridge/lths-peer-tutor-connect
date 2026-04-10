@@ -90,6 +90,8 @@ hoursRouter.get("/export", async (req: AuthRequest, res: Response, next: NextFun
         match: {
           include: {
             tutor: { select: { id: true, firstName: true, lastName: true, email: true, grade: true } },
+            student: { select: { id: true, firstName: true, lastName: true, email: true, grade: true } },
+            subject: true,
             request: {
               include: {
                 requester: { select: { id: true, firstName: true, lastName: true, email: true, grade: true } },
@@ -155,21 +157,26 @@ hoursRouter.get("/export", async (req: AuthRequest, res: Response, next: NextFun
 
     // ── Section 2: Session detail ───────────────────────────────────────────
     lines.push(`"=== SESSION DETAIL ==="`);
-    const detailRows = sessions.map((s) => ({
-      "Date": new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      "Tutor First": s.match.tutor.firstName,
-      "Tutor Last": s.match.tutor.lastName,
-      "Tutor Email": s.match.tutor.email,
-      "Tutor Grade": `${s.match.tutor.grade}th`,
-      "Student First": s.match.request.requester.firstName,
-      "Student Last": s.match.request.requester.lastName,
-      "Student Email": s.match.request.requester.email,
-      "Student Grade": `${s.match.request.requester.grade}th`,
-      "Subject": s.match.request.subject.name,
-      "Duration (min)": s.actualDurationMinutes ?? s.durationMinutes,
-      "Duration (hrs)": ((s.actualDurationMinutes ?? s.durationMinutes) / 60).toFixed(2),
-      "Notes": s.notes ?? "",
-    }));
+    const detailRows = sessions.map((s) => {
+      // Handle both request-based bookings (request.requester) and direct bookings (match.student)
+      const studentInfo = s.match.request?.requester ?? (s.match as any).student;
+      const subjectInfo = s.match.request?.subject ?? (s.match as any).subject;
+      return {
+        "Date": new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        "Tutor First": s.match.tutor.firstName,
+        "Tutor Last": s.match.tutor.lastName,
+        "Tutor Email": s.match.tutor.email,
+        "Tutor Grade": `${s.match.tutor.grade}th`,
+        "Student First": studentInfo?.firstName ?? "",
+        "Student Last": studentInfo?.lastName ?? "",
+        "Student Email": (studentInfo as any)?.email ?? "",
+        "Student Grade": studentInfo?.grade ? `${studentInfo.grade}th` : "",
+        "Subject": subjectInfo?.name ?? "",
+        "Duration (min)": s.actualDurationMinutes ?? s.durationMinutes,
+        "Duration (hrs)": ((s.actualDurationMinutes ?? s.durationMinutes) / 60).toFixed(2),
+        "Notes": s.notes ?? "",
+      };
+    });
     lines.push(stringify(detailRows, { header: true, columns: [
       "Date", "Tutor First", "Tutor Last", "Tutor Email", "Tutor Grade",
       "Student First", "Student Last", "Student Email", "Student Grade",

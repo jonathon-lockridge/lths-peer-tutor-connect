@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Home,
   Search,
-  BookOpen,
   Calendar,
   Clock,
   User,
@@ -23,7 +22,6 @@ import { useTheme } from "@/lib/theme";
 const NAV = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/find-tutor", label: "Find a Tutor", icon: Search },
-  { to: "/my-requests", label: "My Requests", icon: BookOpen },
   { to: "/sessions", label: "Sessions", icon: Calendar },
   { to: "/hours", label: "Hours", icon: Clock },
   { to: "/analytics", label: "Analytics", icon: BarChart2 },

@@ -3,6 +3,7 @@ import { prisma } from "../utils/prisma";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
+import { checkAndAwardTopRated } from "./badges";
 import { z } from "zod";
 const MIN_SESSION_MINUTES = 15;
 const MAX_SESSION_MINUTES = 180;
@@ -36,6 +37,7 @@ sessionsRouter.get("/", async (req: AuthRequest, res: Response, next: NextFuncti
         match: {
           OR: [
             { tutorId: req.userId },
+            { studentId: req.userId },
             { request: { requesterId: req.userId } },
           ],
         },
@@ -44,13 +46,14 @@ sessionsRouter.get("/", async (req: AuthRequest, res: Response, next: NextFuncti
         match: {
           include: {
             tutor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+            student: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+            subject: true,
             request: {
               include: {
                 requester: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
                 subject: true,
               },
             },
-            // include meetingUrl so client can show Join button
           },
         },
         reviews: true,
@@ -71,11 +74,15 @@ sessionsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
 
     const match = await prisma.match.findUnique({
       where: { id: parsed.data.matchId },
-      include: { request: { include: { subject: true } } },
+      include: {
+        request: { include: { subject: true } },
+        subject: true,
+      },
     });
     if (!match) throw new AppError(404, "Match not found");
 
-    const isParty = match.tutorId === req.userId || match.request.requesterId === req.userId;
+    const studentId = match.studentId ?? match.request?.requesterId ?? null;
+    const isParty = match.tutorId === req.userId || studentId === req.userId;
     if (!isParty) throw new AppError(403, "Forbidden");
     if (match.status !== "ACCEPTED") throw new AppError(400, "Match must be ACCEPTED to log a session");
 
@@ -113,16 +120,17 @@ sessionsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
       },
     });
 
-    // Notify the other party — include the confirm code in the message
-    const subjectName = (match.request as any).subject?.name ?? "your session";
-    const notifyId = isTutor ? match.request.requesterId : match.tutorId;
-    await createNotification(
-      notifyId,
-      "SESSION_CONFIRMED",
-      "Confirm your session",
-      `A ${subjectName} session has been logged. Enter code ${confirmCode} in the app to confirm and credit hours.`,
-      "/sessions"
-    );
+    const subjectName = match.request?.subject?.name ?? match.subject?.name ?? "your session";
+    const notifyId = isTutor ? studentId : match.tutorId;
+    if (notifyId) {
+      await createNotification(
+        notifyId,
+        "SESSION_CONFIRMED",
+        "Confirm your session",
+        `A ${subjectName} session has been logged. Enter code ${confirmCode} in the app to confirm and credit hours.`,
+        "/sessions"
+      );
+    }
 
     res.status(201).json({ success: true, data: { ...session, confirmCode } });
   } catch (err) {
@@ -138,7 +146,14 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
 
     const session = await prisma.session.findUnique({
       where: { id: req.params.id },
-      include: { match: { include: { request: { include: { subject: true } } } } },
+      include: {
+        match: {
+          include: {
+            request: { include: { subject: true } },
+            subject: true,
+          },
+        },
+      },
     });
     if (!session) throw new AppError(404, "Session not found");
 
@@ -148,8 +163,9 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
     }
 
     const { match } = session;
+    const studentId = match.studentId ?? match.request?.requesterId ?? null;
     const isTutor = match.tutorId === req.userId;
-    const isTutee = match.request.requesterId === req.userId;
+    const isTutee = studentId === req.userId;
     if (!isTutor && !isTutee) throw new AppError(403, "Forbidden");
 
     // Idempotency
@@ -200,14 +216,19 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
         "/hours"
       );
 
-      // Notify tutee — session confirmed, invite them to leave a review
-      await createNotification(
-        match.request.requesterId,
-        "SESSION_CONFIRMED",
-        "Session confirmed!",
-        `Your session has been confirmed by both parties. Head to Sessions to leave a review.`,
-        "/sessions"
-      );
+      // Notify student — prompt required review
+      if (studentId) {
+        await createNotification(
+          studentId,
+          "SESSION_REVIEW_PROMPT",
+          "How was your session?",
+          "Your session has been confirmed. Please leave a rating for your tutor — it only takes a second.",
+          `/tutors/${match.tutorId}`
+        );
+      }
+
+      // Check if tutor earned TOP_RATED badge
+      await checkAndAwardTopRated(match.tutorId);
     }
 
     res.json({ success: true, data: updated });

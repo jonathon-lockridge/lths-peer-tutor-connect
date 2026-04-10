@@ -16,6 +16,7 @@ const updateProfileSchema = z.object({
   phone: z.string().regex(/^[\d\s\-\+\(\)\.]{7,20}$/, "Invalid phone number format").nullable().optional(),
   isTutor: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
 
 // List tutors (with filters)
@@ -41,7 +42,8 @@ usersRouter.get("/tutors", async (req: AuthRequest, res: Response, next: NextFun
       include: {
         tutorSubjects: { include: { subject: true } },
         volunteerHours: true,
-        reviewsGiven: false,
+        badges: true,
+        availability: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
       },
       orderBy: { firstName: "asc" },
     });
@@ -49,13 +51,7 @@ usersRouter.get("/tutors", async (req: AuthRequest, res: Response, next: NextFun
     // Compute average rating & total hours for each tutor
     const tutorProfiles = await Promise.all(
       tutors.map(async (t) => {
-        const reviews = await prisma.review.findMany({
-          where: {
-            session: {
-              match: { tutorId: t.id },
-            },
-          },
-        });
+        const reviews = await prisma.review.findMany({ where: { tutorId: t.id } });
         const avgRating =
           reviews.length > 0
             ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -80,13 +76,18 @@ usersRouter.get("/:id", async (req: AuthRequest, res: Response, next: NextFuncti
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      include: { tutorSubjects: { include: { subject: true } }, volunteerHours: true },
+      include: {
+        tutorSubjects: { include: { subject: true } },
+        volunteerHours: true,
+        badges: true,
+        availability: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
+      },
     });
     if (!user) throw new AppError(404, "User not found");
 
     const reviews = await prisma.review.findMany({
-      where: { session: { match: { tutorId: user.id } } },
-      include: { reviewer: true },
+      where: { tutorId: user.id },
+      include: { reviewer: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: { createdAt: "desc" },
       take: 20,
     });

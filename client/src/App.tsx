@@ -4,7 +4,6 @@ import { useAuth, SignIn, SignUp } from "@clerk/clerk-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { HomePage } from "@/pages/Home";
 import { FindTutorPage } from "@/pages/FindTutor";
-import { MyRequestsPage } from "@/pages/MyRequests";
 import { MySessionsPage } from "@/pages/MySessions";
 import { HoursPage } from "@/pages/Hours";
 import { ProfilePage } from "@/pages/Profile";
@@ -96,7 +95,6 @@ export default function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/find-tutor" element={<FindTutorPage />} />
                   <Route path="/tutors/:id" element={<TutorProfilePage />} />
-                  <Route path="/my-requests" element={<MyRequestsPage />} />
                   <Route path="/sessions" element={<MySessionsPage />} />
                   <Route path="/hours" element={<HoursPage />} />
                   <Route path="/profile" element={<ProfilePage />} />

@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { Calendar, Clock, BookOpen, ArrowRight, Star, MessageSquare, Inbox, Check, X, Zap, Video } from "lucide-react";
+import { Calendar, Clock, ArrowRight, Star, MessageSquare, Inbox, Check, X, Zap, Video } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatDateTime, formatMinutes } from "@/lib/utils";
 import { StatCardSkeleton } from "@/components/shared/LoadingSkeletons";
-import { MatchDTO, HourSummaryDTO, TutoringRequestDTO, UserDTO } from "@lths/shared";
+import { MatchDTO, HourSummaryDTO, UserDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 
 export function HomePage() {
@@ -30,11 +30,6 @@ export function HomePage() {
     queryFn: () => api.get<MatchDTO[]>("/matches?role=tutor"),
   });
 
-  const { data: requests } = useQuery({
-    queryKey: ["my-requests"],
-    queryFn: () => api.get<TutoringRequestDTO[]>("/requests?mine=true"),
-  });
-
   const [confirmDeclineId, setConfirmDeclineId] = useState<string | null>(null);
 
   const declineMutation = useMutation({
@@ -53,8 +48,6 @@ export function HomePage() {
   const upcomingMatches = allMatches.filter(
     (m) => m.status === "ACCEPTED" && m.scheduledAt && new Date(m.scheduledAt) > new Date()
   );
-  const pendingRequests = requests?.data?.filter((r) => r.status === "OPEN" || r.status === "MATCHED") ?? [];
-
   // Next upcoming match (sorted by scheduled time)
   const nextMatch = upcomingMatches
     .slice()
@@ -78,10 +71,10 @@ export function HomePage() {
               Find a Tutor
             </Link>
             <Link
-              to="/my-requests"
+              to="/sessions"
               className="rounded-lg border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
-              My Requests
+              My Sessions
             </Link>
           </div>
         </div>
@@ -102,7 +95,9 @@ export function HomePage() {
               <MessageSquare className="h-3 w-3" /> Message
             </button>
           </div>
-          <p className="font-semibold text-foreground">{nextMatch.request.subject.name}</p>
+          <p className="font-semibold text-foreground">
+            {nextMatch.request?.subject.name ?? nextMatch.subject?.name ?? "Tutoring Session"}
+          </p>
           <p className="text-sm text-muted-foreground">
             with {nextMatch.tutor.firstName} {nextMatch.tutor.lastName}
             {nextMatch.location ? ` · ${nextMatch.location}` : ""}
@@ -124,9 +119,9 @@ export function HomePage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {hoursLoading ? (
-          <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
+          <><StatCardSkeleton /><StatCardSkeleton /></>
         ) : (
           <>
             <div className="rounded-xl border bg-card p-4 text-center">
@@ -142,13 +137,6 @@ export function HomePage() {
               </div>
               <p className="text-xl font-bold text-foreground">{upcomingMatches.length}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Upcoming</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
-                <BookOpen className="h-3.5 w-3.5" />
-              </div>
-              <p className="text-xl font-bold text-foreground">{pendingRequests.length}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Requests</p>
             </div>
           </>
         )}
@@ -228,7 +216,9 @@ export function HomePage() {
                   <Calendar className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{m.request.subject.name}</p>
+                  <p className="font-medium text-sm truncate">
+                    {m.request?.subject.name ?? m.subject?.name ?? "Tutoring Session"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     with {m.tutor.firstName} {m.tutor.lastName}
                     {m.location ? ` · ${m.location}` : ""}
@@ -283,17 +273,19 @@ function PendingMatchCard({
 
   // Minimum datetime-local value = now (prevent scheduling in past)
   const minDateTime = new Date().toISOString().slice(0, 16);
+  // Direct bookings already have a scheduled time; request-based need tutor to set it
+  const isDirect = !match.requestId;
 
   const acceptMutation = useMutation({
     mutationFn: () =>
       api.post(`/matches/${match.id}/accept`, {
-        scheduledAt: new Date(scheduledAt).toISOString(),
-        location,
+        location: location || "TBD",
+        ...(isDirect ? {} : { scheduledAt: new Date(scheduledAt).toISOString() }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["matches-tutor"] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
-      toast.success("Match accepted! The student has been notified.");
+      toast.success("Session confirmed! The student has been notified.");
     },
     onError: (e: Error) => toast.error(e?.message ?? "Could not accept match"),
   });
@@ -302,12 +294,30 @@ function PendingMatchCard({
     <div className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-foreground">{match.request.subject.name}</p>
-          <p className="text-sm text-muted-foreground">
-            From {match.request.requester.firstName} {match.request.requester.lastName} · Grade {match.request.requester.grade}
+          <p className="font-semibold text-foreground">
+            {match.request?.subject.name ?? match.subject?.name ?? "Tutoring Session"}
           </p>
-          {match.request.description && (
-            <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{match.request.description}</p>
+          {match.request ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                From {match.request.requester.firstName} {match.request.requester.lastName} · Grade {match.request.requester.grade}
+              </p>
+              {match.request.description && (
+                <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{match.request.description}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                From {match.student?.firstName ?? "A student"} {match.student?.lastName ?? ""}{match.student?.grade ? ` · Grade ${match.student.grade}` : ""}
+              </p>
+              {match.scheduledAt && (
+                <p className="mt-1 text-sm text-muted-foreground">Requested: {formatDateTime(match.scheduledAt)}</p>
+              )}
+              {match.note && (
+                <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{match.note}</p>
+              )}
+            </>
           )}
         </div>
         <span className="shrink-0 rounded-full bg-blue-100 dark:bg-blue-950/40 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:text-blue-300">
@@ -317,16 +327,18 @@ function PendingMatchCard({
 
       {accepting ? (
         <div className="mt-4 space-y-3 border-t pt-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium">Date & Time *</label>
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              min={minDateTime}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          {!isDirect && (
+            <div>
+              <label className="mb-1 block text-xs font-medium">Date & Time *</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                min={minDateTime}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium">Location *</label>
             <input
@@ -340,7 +352,7 @@ function PendingMatchCard({
           <div className="flex gap-2">
             <button
               onClick={() => acceptMutation.mutate()}
-              disabled={!scheduledAt || !location || acceptMutation.isPending}
+              disabled={(!isDirect && !scheduledAt) || !location || acceptMutation.isPending}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
             >
               <Check className="h-4 w-4" />

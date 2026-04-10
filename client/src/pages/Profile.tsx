@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserButton } from "@clerk/clerk-react";
 import { useRef, useState, useEffect } from "react";
-import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight } from "lucide-react";
+import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus } from "@lths/shared";
+import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus, TutorAvailabilityDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
@@ -14,6 +14,8 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const { data: me } = useQuery({
     queryKey: ["me"],
@@ -40,6 +42,48 @@ export function ProfilePage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["me"] }); setEditing(false); toast.success("Profile saved!"); },
     onError: () => toast.error("Failed to save profile"),
   });
+
+  const { data: notificationsData, refetch: refetchNotifications } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api.get<{ notifications: { id: string; title: string; body: string; read: boolean; createdAt: string }[]; unreadCount: number }>("/notifications"),
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/notifications/${id}`),
+    onSuccess: () => { refetchNotifications(); },
+  });
+
+  const deleteAllNotificationsMutation = useMutation({
+    mutationFn: () => api.delete("/notifications"),
+    onSuccess: () => { refetchNotifications(); toast.success("All notifications cleared"); },
+  });
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return; }
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = await (window as any).__clerkGetToken?.() ?? null;
+      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "")}/api/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Upload failed");
+      await updateMutation.mutateAsync({ avatarUrl: json.data.url });
+      toast.success("Profile picture updated!");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to upload image");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   // Auto-open apply modal if ?apply=true in URL
   useEffect(() => {
@@ -71,13 +115,35 @@ export function ProfilePage() {
       {/* User info card */}
       <div className="rounded-xl border bg-card p-6">
         <div className="flex items-center gap-4">
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} className="h-16 w-16 rounded-full object-cover" alt="" />
-          ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-white">
-              {initials}
-            </div>
-          )}
+          {/* Avatar with upload button */}
+          <div className="relative shrink-0">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} className="h-16 w-16 rounded-full object-cover" alt="" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-white">
+                {initials}
+              </div>
+            )}
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              title="Change profile picture"
+              className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-card border border-border shadow hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {avatarUploading ? (
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <Camera className="h-3 w-3 text-foreground" />
+              )}
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+          </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold truncate">{user.firstName} {user.lastName}</h2>
             <p className="text-sm text-muted-foreground truncate">{user.email}</p>
@@ -108,7 +174,7 @@ export function ProfilePage() {
           <div>
             <p className="text-sm font-medium">In-app notifications</p>
             <p className="text-xs text-muted-foreground">
-              Get notified about session reminders, new messages, and request updates.
+              Get notified about session reminders, new messages, and updates.
             </p>
           </div>
           <button
@@ -131,7 +197,54 @@ export function ProfilePage() {
             <><BellOff className="h-3.5 w-3.5" /> Notifications are off</>
           )}
         </div>
+
+        {/* Notification history with delete */}
+        {(() => {
+          const notifs = notificationsData?.data?.notifications ?? [];
+          if (notifs.length === 0) return (
+            <p className="mt-4 text-sm text-muted-foreground border-t pt-4">No notifications yet.</p>
+          );
+          return (
+            <div className="mt-4 border-t pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">History</p>
+                <button
+                  onClick={() => deleteAllNotificationsMutation.mutate()}
+                  disabled={deleteAllNotificationsMutation.isPending}
+                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                >
+                  Delete All
+                </button>
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {notifs.map((n) => (
+                  <div key={n.id} className={`flex items-start gap-3 rounded-lg px-3 py-2 ${n.read ? "bg-muted/40" : "bg-primary/5 border border-primary/20"}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{n.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        {new Date(n.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => deleteNotificationMutation.mutate(n.id)}
+                      className="shrink-0 rounded p-1 hover:bg-muted text-muted-foreground hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* Tutor Availability */}
+      {user.isTutor && (
+        <AvailabilitySection userId={user.id} />
+      )}
 
       {/* Tutor Status */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
@@ -215,6 +328,146 @@ export function ProfilePage() {
           }}
           onError={(msg) => toast.error(msg)}
         />
+      )}
+    </div>
+  );
+}
+
+// ── Tutor Availability Section ────────────────────────────────────────────────
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function AvailabilitySection({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [showAdd, setShowAdd] = useState(false);
+  const [day, setDay] = useState(1);
+  const [startTime, setStartTime] = useState("15:00");
+  const [endTime, setEndTime] = useState("17:00");
+
+  const { data, refetch } = useQuery({
+    queryKey: ["availability", userId],
+    queryFn: () => api.get<TutorAvailabilityDTO[]>(`/availability/${userId}`),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: () => api.post("/availability", { dayOfWeek: day, startTime, endTime }),
+    onSuccess: () => {
+      refetch();
+      setShowAdd(false);
+      toast.success("Slot added!");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not add slot"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/availability/${id}`),
+    onSuccess: () => {
+      refetch();
+      qc.invalidateQueries({ queryKey: ["availability", userId] });
+    },
+    onError: () => toast.error("Could not remove slot"),
+  });
+
+  const slots = data?.data ?? [];
+  const byDay: Record<number, TutorAvailabilityDTO[]> = {};
+  for (const s of slots) {
+    if (!byDay[s.dayOfWeek]) byDay[s.dayOfWeek] = [];
+    byDay[s.dayOfWeek].push(s);
+  }
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold">My Availability</h3>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <Plus className="h-4 w-4" /> Add Slot
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="mb-4 space-y-3 rounded-lg border bg-muted/30 p-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium">Day</label>
+              <select
+                value={day}
+                onChange={(e) => setDay(Number(e.target.value))}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Start</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">End</label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => addMutation.mutate()}
+              disabled={addMutation.isPending || !startTime || !endTime || startTime >= endTime}
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+            >
+              {addMutation.isPending ? "Adding…" : "Add"}
+            </button>
+            <button
+              onClick={() => setShowAdd(false)}
+              className="rounded-lg border px-4 py-2 text-sm hover:bg-muted"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {slots.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No availability set. Add slots so students can book sessions with you.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {[0, 1, 2, 3, 4, 5, 6].filter((d) => byDay[d]?.length).map((d) => (
+            <div key={d}>
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">{DAY_NAMES[d]}</p>
+              <div className="space-y-1">
+                {byDay[d].map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5"
+                  >
+                    <span className="text-sm">{slot.startTime} – {slot.endTime}</span>
+                    <button
+                      onClick={() => deleteMutation.mutate(slot.id)}
+                      disabled={deleteMutation.isPending}
+                      className="text-muted-foreground transition-colors hover:text-red-500 disabled:opacity-50"
+                      title="Remove slot"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

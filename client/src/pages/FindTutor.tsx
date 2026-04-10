@@ -6,14 +6,14 @@ import { TutorCard } from "@/components/tutors/TutorCard";
 import { TutorCardSkeleton } from "@/components/shared/LoadingSkeletons";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TutorProfileDTO, SubjectDTO } from "@lths/shared";
-import { RequestModal } from "@/components/requests/RequestModal";
+import { BookingModal } from "@/components/tutors/BookingModal";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
 export function FindTutorPage() {
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
-  const [requestTarget, setRequestTarget] = useState<TutorProfileDTO | null>(null);
+  const [bookTarget, setBookTarget] = useState<TutorProfileDTO | null>(null);
 
   const { data: tutors, isLoading } = useQuery({
     queryKey: ["tutors", search, subjectFilter, gradeFilter],
@@ -111,16 +111,16 @@ export function FindTutorPage() {
             <TutorCard
               key={tutor.id}
               tutor={tutor}
-              onRequest={setRequestTarget}
+              onBook={setBookTarget}
             />
           ))}
         </div>
       )}
 
-      {requestTarget && (
-        <RequestModal
-          tutor={requestTarget}
-          onClose={() => setRequestTarget(null)}
+      {bookTarget && (
+        <BookingModal
+          tutor={bookTarget}
+          onClose={() => setBookTarget(null)}
         />
       )}
     </div>

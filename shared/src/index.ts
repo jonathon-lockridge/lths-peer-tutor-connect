@@ -20,6 +20,8 @@ export type SubjectCategory =
 
 export type Urgency = "LOW" | "MEDIUM" | "HIGH";
 
+export type BadgeType = "TOP_RATED" | "RECOMMENDED" | "HIGHLY_SKILLED";
+
 export type RequestStatus =
   | "OPEN"
   | "MATCHED"
@@ -70,10 +72,27 @@ export interface TutorSubjectDTO {
   createdAt: string;
 }
 
+export interface TutorAvailabilityDTO {
+  id: string;
+  userId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface TutorBadgeDTO {
+  id: string;
+  userId: string;
+  badge: BadgeType;
+  awardedAt: string;
+}
+
 export interface TutorProfileDTO extends UserDTO {
   tutorSubjects: TutorSubjectDTO[];
   averageRating: number | null;
   totalHoursTutored: number;
+  badges: TutorBadgeDTO[];
+  availability: TutorAvailabilityDTO[];
 }
 
 export interface TutoringRequestDTO {
@@ -91,8 +110,13 @@ export interface TutoringRequestDTO {
 
 export interface MatchDTO {
   id: string;
-  requestId: string;
-  request: TutoringRequestDTO;
+  requestId?: string | null;
+  request?: TutoringRequestDTO | null;
+  studentId?: string | null;
+  student?: Pick<UserDTO, "id" | "firstName" | "lastName" | "grade" | "avatarUrl"> | null;
+  subjectId?: string | null;
+  subject?: SubjectDTO | null;
+  note?: string | null;
   tutorId: string;
   tutor: Pick<UserDTO, "id" | "firstName" | "lastName" | "grade" | "avatarUrl">;
   status: MatchStatus;
@@ -123,7 +147,8 @@ export interface SessionDTO {
 
 export interface ReviewDTO {
   id: string;
-  sessionId: string;
+  sessionId?: string | null;
+  tutorId?: string | null;
   reviewerId: string;
   reviewer: Pick<UserDTO, "id" | "firstName" | "lastName" | "avatarUrl">;
   rating: number;

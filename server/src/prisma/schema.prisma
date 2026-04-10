@@ -56,6 +56,14 @@ enum NotificationType {
   NEW_MESSAGE
   TUTOR_APPROVED
   TUTOR_REJECTED
+  SESSION_REVIEW_PROMPT
+  NEW_BOOKING
+}
+
+enum BadgeType {
+  TOP_RATED
+  RECOMMENDED
+  HIGHLY_SKILLED
 }
 
 enum VerificationStatus {
@@ -80,16 +88,20 @@ model User {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  tutorSubjects       TutorSubject[]
-  requestsMade        TutoringRequest[]    @relation("Requester")
-  matchesAsTutor      Match[]              @relation("Tutor")
-  volunteerHours      VolunteerHourLog[]
-  reviewsGiven        Review[]             @relation("Reviewer")
-  notifications       Notification[]
-  messagesSent        Message[]
-  tutorVerifications  TutorVerification[]  @relation("Applicant")
-  verificationsReviewed TutorVerification[] @relation("Reviewer")
-  appFeedback         AppFeedback[]
+  tutorSubjects         TutorSubject[]
+  requestsMade          TutoringRequest[]    @relation("Requester")
+  matchesAsTutor        Match[]              @relation("Tutor")
+  matchesAsStudent      Match[]              @relation("Student")
+  volunteerHours        VolunteerHourLog[]
+  reviewsGiven          Review[]             @relation("Reviewer")
+  reviewsReceived       Review[]             @relation("ReviewsReceived")
+  notifications         Notification[]
+  messagesSent          Message[]
+  tutorVerifications    TutorVerification[]  @relation("Applicant")
+  verificationsReviewed TutorVerification[]  @relation("Reviewer")
+  appFeedback           AppFeedback[]
+  availability          TutorAvailability[]
+  badges                TutorBadge[]
 }
 
 model AppFeedback {
@@ -128,6 +140,7 @@ model Subject {
   tutorSubjects       TutorSubject[]
   tutoringRequests    TutoringRequest[]
   tutorVerifications  TutorVerification[]
+  directMatches       Match[]
 }
 
 model TutorSubject {
@@ -161,8 +174,11 @@ model TutoringRequest {
 
 model Match {
   id          String      @id @default(cuid())
-  requestId   String
+  requestId   String?     // null for direct bookings
+  studentId   String?     // the booking student (populated for direct bookings; legacy rows use request.requesterId)
   tutorId     String
+  subjectId   String?     // set for direct bookings
+  note        String?     // optional student description for direct bookings
   status      MatchStatus @default(PENDING)
   scheduledAt DateTime?
   location    String?
@@ -170,8 +186,10 @@ model Match {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  request  TutoringRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  tutor    User            @relation("Tutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  request  TutoringRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  student  User?            @relation("Student", fields: [studentId], references: [id], onDelete: Cascade)
+  tutor    User             @relation("Tutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject  Subject?         @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   sessions Session[]
   messages Message[]
 }
@@ -222,16 +240,18 @@ model VolunteerHourLog {
 
 model Review {
   id         String   @id @default(cuid())
-  sessionId  String
+  sessionId  String?  // kept for context; may be null for legacy or future non-session reviews
+  tutorId    String?  // direct FK to the reviewed tutor
   reviewerId String
   rating     Int
   comment    String?
   createdAt  DateTime @default(now())
 
-  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  reviewer User    @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  session  Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tutor    User?    @relation("ReviewsReceived", fields: [tutorId], references: [id], onDelete: Cascade)
+  reviewer User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
 
-  @@unique([sessionId, reviewerId])
+  @@unique([tutorId, reviewerId])
 }
 
 model Notification {
@@ -245,4 +265,28 @@ model Notification {
   createdAt DateTime         @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TutorAvailability {
+  id        String   @id @default(cuid())
+  userId    String
+  dayOfWeek Int      // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime String   // "HH:MM" 24h
+  endTime   String   // "HH:MM" 24h
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dayOfWeek, startTime])
+}
+
+model TutorBadge {
+  id        String    @id @default(cuid())
+  userId    String
+  badge     BadgeType
+  awardedAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badge])
 }

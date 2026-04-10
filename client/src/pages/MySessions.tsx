@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Star, Video, KeyRound } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Video, KeyRound, Star } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SessionDTO, UserDTO } from "@lths/shared";
@@ -243,17 +244,21 @@ function SessionCard({
   const iAmConfirmed = isTutor ? s.tutorConfirmed : s.tuteeConfirmed;
   const needsMyConfirm = !iAmConfirmed && !bothConfirmed;
   const meetingUrl = s.match.meetingUrl;
-  // Show confirm code to whoever logged (already confirmed side)
   const myCode = iAmConfirmed && !bothConfirmed ? s.confirmCode : undefined;
+  const isPast = new Date(s.date) < new Date();
+
+  // Null-safe helpers for both request-based and direct bookings
+  const subjectName = s.match.request?.subject?.name ?? s.match.subject?.name ?? "Session";
+  const studentUser = s.match.request?.requester ?? s.match.student;
 
   return (
     <div className="rounded-xl border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-foreground">{s.match.request.subject.name}</p>
+          <p className="font-semibold text-foreground">{subjectName}</p>
           <p className="text-sm text-muted-foreground">
-            {s.match.tutor.firstName} {s.match.tutor.lastName} &amp;{" "}
-            {s.match.request.requester.firstName} {s.match.request.requester.lastName}
+            {s.match.tutor.firstName} {s.match.tutor.lastName}
+            {studentUser && <> &amp; {studentUser.firstName} {studentUser.lastName}</>}
           </p>
         </div>
         {bothConfirmed ? (
@@ -367,68 +372,21 @@ function SessionCard({
         </p>
       )}
 
-      {bothConfirmed && (s.reviews?.length ?? 0) === 0 && (
-        <ReviewCard sessionId={s.id} />
-      )}
-    </div>
-  );
-}
-
-// ── Review Card ───────────────────────────────────────────────────────────────
-function ReviewCard({ sessionId }: { sessionId: string }) {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [rating, setRating] = useState(0);
-  const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  const reviewMutation = useMutation({
-    mutationFn: () => api.post("/reviews", { sessionId, rating, comment }),
-    onSuccess: () => {
-      setSubmitted(true);
-      qc.invalidateQueries({ queryKey: ["sessions"] });
-      toast.success("Review submitted! Thank you.");
-    },
-    onError: () => toast.error("Could not submit review"),
-  });
-
-  if (submitted) return null;
-
-  return (
-    <div className="mt-4 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 p-4">
-      <p className="mb-2 text-sm font-medium text-foreground">Rate this session</p>
-      <div className="mb-3 flex gap-1">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <button
-            key={i}
-            onMouseEnter={() => setHover(i)}
-            onMouseLeave={() => setHover(0)}
-            onClick={() => setRating(i)}
-            className="focus:outline-none"
+      {/* Review prompt for past confirmed sessions where current user is the student */}
+      {bothConfirmed && !isTutor && isPast && (
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-yellow-500" />
+            <p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">How was your session?</p>
+          </div>
+          <Link
+            to={`/tutors/${s.match.tutorId}`}
+            className="text-sm font-medium text-primary hover:underline"
           >
-            <Star
-              className={`h-6 w-6 transition-colors ${
-                i <= (hover || rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-              }`}
-            />
-          </button>
-        ))}
-      </div>
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        placeholder="Optional comment…"
-        rows={2}
-        className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-      />
-      <button
-        onClick={() => reviewMutation.mutate()}
-        disabled={rating === 0 || reviewMutation.isPending}
-        className="mt-2 rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40 hover:opacity-90"
-      >
-        {reviewMutation.isPending ? "Submitting…" : "Submit Review"}
-      </button>
+            Leave a review →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

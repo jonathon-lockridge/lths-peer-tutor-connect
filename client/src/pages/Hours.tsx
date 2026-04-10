@@ -156,7 +156,7 @@ export function HoursPage() {
                   <img src={entry.user.avatarUrl} className="h-8 w-8 rounded-full" alt="" />
                 ) : (
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                    {entry.user.firstName[0]}{entry.user.lastName[0]}
+                    {entry.user.firstName?.[0] ?? "?"}{entry.user.lastName?.[0] ?? ""}
                   </div>
                 )}
                 <div className="flex-1">

@@ -20,6 +20,8 @@ import { messagesRouter } from "./routes/messages";
 import { verificationRouter } from "./routes/verification";
 import { feedbackRouter } from "./routes/feedback";
 import { uploadRouter } from "./routes/upload";
+import { availabilityRouter } from "./routes/availability";
+import { badgesRouter } from "./routes/badges";
 import { prisma } from "./utils/prisma";
 import { createNotification } from "./utils/notify";
 import { sendEmail, sessionReminderEmail } from "./utils/email";
@@ -82,6 +84,8 @@ app.use("/api/messages", messagesRouter);
 app.use("/api/verification", verificationRouter);
 app.use("/api/feedback", feedbackRouter);
 app.use("/api/upload", uploadRouter);
+app.use("/api/availability", availabilityRouter);
+app.use("/api/badges", badgesRouter);
 app.use("/api/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Health check
@@ -112,8 +116,10 @@ async function sendSessionReminders() {
       include: {
         match: {
           include: {
-            request: { include: { requester: true, subject: true } },
             tutor: true,
+            student: true,
+            subject: true,
+            request: { include: { requester: true, subject: true } },
           },
         },
       },
@@ -131,21 +137,34 @@ async function sendSessionReminders() {
       });
       if (alreadySent) continue;
 
-      const subject = session.match.request.subject as any;
-      const subjectName = subject?.name ?? "tutoring session";
+      // Handle both request-based and direct bookings
+      const subjectName =
+        session.match.request?.subject?.name ??
+        (session.match as any).subject?.name ??
+        "tutoring session";
+      const studentId =
+        (session.match as any).studentId ??
+        session.match.request?.requesterId ??
+        null;
+      const studentUser =
+        (session.match as any).student ??
+        session.match.request?.requester ??
+        null;
+
       const msg = `Your ${subjectName} session starts in about 1 hour.`;
       const scheduledStr = session.startTime
         ? new Date(session.startTime).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
         : "soon";
-      const location = (session as any).match?.location ?? "TBD";
+      const location = (session.match as any).location ?? "TBD";
       const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
 
       await createNotification(session.match.tutorId, "SESSION_REMINDER", "Session reminder", msg, "/sessions");
-      await createNotification(session.match.request.requesterId, "SESSION_REMINDER", "Session reminder", msg, "/sessions");
+      if (studentId) {
+        await createNotification(studentId, "SESSION_REMINDER", "Session reminder", msg, "/sessions");
+      }
 
       // Email + SMS reminders for both parties
       const tutor = session.match.tutor as any;
-      const student = session.match.request.requester as any;
 
       if (tutor?.email) {
         await sendEmail(tutor.email, "Session reminder — 1 hour away",
@@ -153,11 +172,11 @@ async function sendSessionReminders() {
       }
       if (tutor?.phone) await sendSms(tutor.phone, `Reminder: Your ${subjectName} session is in ~1 hour at ${location}.`);
 
-      if (student?.email) {
-        await sendEmail(student.email, "Session reminder — 1 hour away",
-          sessionReminderEmail(student.firstName, subjectName, scheduledStr, location, `${appUrl}/sessions`));
+      if (studentUser?.email) {
+        await sendEmail(studentUser.email, "Session reminder — 1 hour away",
+          sessionReminderEmail(studentUser.firstName, subjectName, scheduledStr, location, `${appUrl}/sessions`));
       }
-      if (student?.phone) await sendSms(student.phone, `Reminder: Your ${subjectName} session is in ~1 hour at ${location}.`);
+      if (studentUser?.phone) await sendSms(studentUser.phone, `Reminder: Your ${subjectName} session is in ~1 hour at ${location}.`);
     }
   } catch (e) {
     console.error("Reminder job error:", e);
@@ -177,15 +196,26 @@ async function expireUnconfirmedSessions() {
       include: {
         match: {
           include: {
-            request: { include: { requester: true, subject: true } },
             tutor: true,
+            student: true,
+            subject: true,
+            request: { include: { requester: true, subject: true } },
           },
         },
       },
     });
 
     for (const session of expired) {
-      const subjectName = (session.match.request.subject as any)?.name ?? "session";
+      // Handle both request-based and direct bookings
+      const subjectName =
+        session.match.request?.subject?.name ??
+        (session.match as any).subject?.name ??
+        "session";
+      const studentId =
+        (session.match as any).studentId ??
+        session.match.request?.requesterId ??
+        null;
+
       if (!session.tutorConfirmed) {
         await createNotification(
           session.match.tutorId,
@@ -195,9 +225,9 @@ async function expireUnconfirmedSessions() {
           "/sessions"
         );
       }
-      if (!session.tuteeConfirmed) {
+      if (!session.tuteeConfirmed && studentId) {
         await createNotification(
-          session.match.request.requesterId,
+          studentId,
           "SESSION_CONFIRMED",
           "Session expired without confirmation",
           `A ${subjectName} session was not confirmed in time and has expired.`,
