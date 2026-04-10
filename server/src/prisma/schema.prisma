@@ -121,6 +121,7 @@ model TutorVerification {
   evidenceNote String             // freeform explanation
   evidenceUrl  String?            // optional uploaded file URL or screenshot description
   gpaOrGrade   String?            // e.g. "A", "95", "4.2 GPA"
+  selfRating   Int                @default(3) // 1-5 confidence level chosen by applicant
   status       VerificationStatus @default(PENDING)
   reviewedBy   String?
   reviewNote   String?

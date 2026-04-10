@@ -10,6 +10,9 @@ export function setAuthTokenGetter(fn: TokenGetter) {
   getAuthToken = fn;
 }
 
+/** Call this anywhere you need a raw Bearer token (e.g. multipart uploads) */
+export { getAuthToken };
+
 async function request<T>(
   path: string,
   options?: RequestInit

@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from "express";
+import { z } from "zod";
 import { prisma } from "../utils/prisma";
 import { requireAuth, requireAdmin, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
@@ -92,6 +93,24 @@ adminRouter.post("/flag-session/:id", async (req: AuthRequest, res: Response, ne
     const updated = await prisma.session.update({
       where: { id: req.params.id },
       data: { tutorConfirmed: false, tuteeConfirmed: false },
+    });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update a tutor subject's confidence level (selfRating)
+adminRouter.patch("/tutor-subjects/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const parsed = z.object({ selfRating: z.number().int().min(1).max(5) }).safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, "selfRating must be an integer between 1 and 5");
+    const ts = await prisma.tutorSubject.findUnique({ where: { id: req.params.id } });
+    if (!ts) throw new AppError(404, "Tutor subject not found");
+    const updated = await prisma.tutorSubject.update({
+      where: { id: req.params.id },
+      data: { selfRating: parsed.data.selfRating },
+      include: { subject: true },
     });
     res.json({ success: true, data: updated });
   } catch (err) {

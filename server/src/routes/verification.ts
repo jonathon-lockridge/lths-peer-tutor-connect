@@ -16,6 +16,7 @@ const submitSchema = z.object({
   // Require actual documentary evidence — a file URL (uploaded screenshot) or an external URL
   evidenceUrl: z.string().min(10, "Please upload a screenshot as proof."),
   gpaOrGrade: z.string().max(20).optional(),
+  selfRating: z.number().int().min(1).max(5).default(3),
 });
 
 // Student: submit a verification request
@@ -23,7 +24,7 @@ verificationRouter.post("/", async (req: AuthRequest, res: Response, next: NextF
   try {
     const parsed = submitSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(400, parsed.error.errors[0].message);
-    const { subjectId, evidenceType, evidenceNote, evidenceUrl, gpaOrGrade } = parsed.data;
+    const { subjectId, evidenceType, evidenceNote, evidenceUrl, gpaOrGrade, selfRating } = parsed.data;
 
     // Check subject exists
     const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
@@ -47,6 +48,7 @@ verificationRouter.post("/", async (req: AuthRequest, res: Response, next: NextF
         evidenceNote,
         evidenceUrl,
         gpaOrGrade: gpaOrGrade || null,
+        selfRating,
       },
       include: { subject: true },
     });
@@ -116,11 +118,11 @@ verificationRouter.post("/:id/approve", requireAdmin, async (req: AuthRequest, r
         where: { id: req.params.id },
         data: { status: "APPROVED", reviewedBy: req.userId, reviewNote: parsed.data.reviewNote ?? null },
       }),
-      // Upsert the TutorSubject entry so they appear in search results
+      // Upsert the TutorSubject — preserve existing selfRating if already set, otherwise use applicant's chosen rating
       prisma.tutorSubject.upsert({
         where: { userId_subjectId: { userId: verification.userId, subjectId: verification.subjectId } },
         update: {},
-        create: { userId: verification.userId, subjectId: verification.subjectId },
+        create: { userId: verification.userId, subjectId: verification.subjectId, selfRating: verification.selfRating },
       }),
       // Set isTutor = true
       prisma.user.update({

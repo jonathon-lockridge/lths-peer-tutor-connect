@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { TutorVerificationDTO } from "@lths/shared";
+import { TutorVerificationDTO, TutorProfileDTO } from "@lths/shared";
 import { StatCardSkeleton } from "@/components/shared/LoadingSkeletons";
 import { useToast } from "@/components/shared/Toast";
 
@@ -46,6 +46,12 @@ export function AdminPage() {
     enabled: !error,
   });
 
+  const { data: tutorsData } = useQuery({
+    queryKey: ["tutors"],
+    queryFn: () => api.get<TutorProfileDTO[]>("/users/tutors"),
+    enabled: !error,
+  });
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -61,6 +67,7 @@ export function AdminPage() {
   const stats = data?.data;
   const pending = pendingData?.data ?? [];
   const feedbackList = feedbackData?.data ?? [];
+  const tutors = tutorsData?.data ?? [];
 
   const handleExport = async (period?: string) => {
     const url = `${import.meta.env.VITE_API_URL ?? ""}/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
@@ -182,6 +189,28 @@ export function AdminPage() {
           </button>
         </div>
       </div>
+      {/* Tutor Confidence Levels */}
+      {tutors.length > 0 && (
+        <div className="rounded-xl border bg-card p-5">
+          <h2 className="mb-1 font-semibold">Tutor Confidence Levels</h2>
+          <p className="mb-4 text-sm text-muted-foreground">Edit the confidence rating for any tutor's subject.</p>
+          <div className="space-y-3">
+            {tutors.map((tutor) =>
+              tutor.tutorSubjects.map((ts) => (
+                <ConfidenceEditor
+                  key={ts.id}
+                  tutorSubjectId={ts.id}
+                  tutorName={`${tutor.firstName} ${tutor.lastName}`}
+                  subjectName={ts.subject.name}
+                  currentRating={ts.selfRating}
+                  onSaved={() => qc.invalidateQueries({ queryKey: ["tutors"] })}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* App Feedback */}
       {feedbackList.length > 0 && (
         <div className="rounded-xl border bg-card p-5">
@@ -202,6 +231,62 @@ export function AdminPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Confidence level editor ───────────────────────────────────────────────────
+
+function ConfidenceEditor({
+  tutorSubjectId,
+  tutorName,
+  subjectName,
+  currentRating,
+  onSaved,
+}: {
+  tutorSubjectId: string;
+  tutorName: string;
+  subjectName: string;
+  currentRating: number;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [rating, setRating] = useState(currentRating);
+
+  const mutation = useMutation({
+    mutationFn: (r: number) => api.patch(`/admin/tutor-subjects/${tutorSubjectId}`, { selfRating: r }),
+    onSuccess: () => { toast.success(`Updated ${tutorName} — ${subjectName} to ${rating}/5`); onSaved(); },
+    onError: (e: Error) => toast.error(e.message || "Failed to update"),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 px-4 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">{tutorName}</p>
+        <p className="text-xs text-muted-foreground truncate">{subjectName}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              onClick={() => setRating(i)}
+              className={`h-7 w-7 rounded text-xs font-semibold transition-colors ${
+                rating === i ? "bg-primary text-white" : "border bg-background text-muted-foreground hover:border-primary"
+              }`}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => mutation.mutate(rating)}
+          disabled={mutation.isPending || rating === currentRating}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 hover:opacity-90"
+        >
+          {mutation.isPending ? "…" : "Save"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -252,6 +337,7 @@ function VerificationReviewCard({
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="capitalize">{verification.evidenceType}</span>
             {verification.gpaOrGrade && <span>Grade/GPA: {verification.gpaOrGrade}</span>}
+            <span className="font-medium text-foreground">Confidence: {verification.selfRating}/5</span>
             <span>{new Date(verification.createdAt).toLocaleDateString()}</span>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { UserButton } from "@clerk/clerk-react";
 import { useRef, useState, useEffect } from "react";
 import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { api } from "@/lib/api";
+import { api, getAuthToken } from "@/lib/api";
 import { UserDTO, SubjectDTO, TutorSubjectDTO, TutorVerificationDTO, VerificationStatus, TutorAvailabilityDTO } from "@lths/shared";
 import { useToast } from "@/components/shared/Toast";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
@@ -66,7 +66,7 @@ export function ProfilePage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const token = await (window as any).__clerkGetToken?.() ?? null;
+      const token = await getAuthToken();
       const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "")}/api/upload`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -523,11 +523,13 @@ function TutorApplyModal({
   onError: (msg: string) => void;
 }) {
   const [subjectId, setSubjectId] = useState("");
+  const [selfRating, setSelfRating] = useState(3);
   const [gpaOrGrade, setGpaOrGrade] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; dataUrl: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const CONFIDENCE_LABELS = ["", "Beginner", "Developing", "Comfortable", "Strong", "Expert"];
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -551,6 +553,7 @@ function TutorApplyModal({
         evidenceNote,
         evidenceUrl: uploadedFile!.dataUrl,
         gpaOrGrade: gpaOrGrade || undefined,
+        selfRating,
       }),
     onSuccess,
     onError: (err: Error) => onError(err.message || "Failed to submit application"),
@@ -587,6 +590,32 @@ function TutorApplyModal({
               placeholder="Choose a subject…"
               className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
+          </div>
+
+          {/* Confidence level */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Confidence level <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelfRating(i)}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                    selfRating === i
+                      ? "border-primary bg-primary text-white"
+                      : "border-border bg-background text-muted-foreground hover:border-primary hover:text-foreground"
+                  }`}
+                >
+                  {i}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selfRating}/5 — {CONFIDENCE_LABELS[selfRating]}
+            </p>
           </div>
 
           {/* Grade */}

@@ -183,6 +183,7 @@ export interface TutorVerificationDTO {
   evidenceNote: string;
   evidenceUrl?: string | null;
   gpaOrGrade?: string | null;
+  selfRating: number;
   status: VerificationStatus;
   reviewedBy?: string | null;
   reviewNote?: string | null;
