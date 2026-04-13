@@ -30,6 +30,10 @@ import { sendSms } from "./utils/sms";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Railway/Vercel/Heroku reverse proxy so express-rate-limit
+// and req.ip work correctly behind load balancers
+app.set("trust proxy", 1);
+
 // Security
 app.use(helmet());
 const allowedOrigins = [
