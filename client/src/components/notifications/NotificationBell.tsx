@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -27,11 +28,13 @@ export function NotificationBell() {
   const btnRef = useRef<HTMLButtonElement>(null);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { isSignedIn } = useAuth();
 
   const { data } = useQuery({
     queryKey: ["notifications"],
     queryFn: () => api.get<NotifResponse>("/notifications"),
     refetchInterval: 30000,
+    enabled: !!isSignedIn,
   });
 
   const markAllRead = useMutation({

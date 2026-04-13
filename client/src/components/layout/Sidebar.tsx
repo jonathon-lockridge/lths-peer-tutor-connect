@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { UserButton } from "@clerk/clerk-react";
+import { UserButton, useAuth } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Home,
@@ -31,10 +31,12 @@ const NAV = [
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme();
+  const { isSignedIn } = useAuth();
 
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<UserDTO>("/auth/me"),
+    enabled: !!isSignedIn,
   });
   const isAdmin = me?.data?.role === "ADMIN";
 

@@ -2,17 +2,19 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Home, Search, Calendar, MessageSquare, User, MoreHorizontal, BookOpen, Clock, BarChart2, X, Moon, Sun, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/clerk-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useTheme } from "@/lib/theme";
 import { UserDTO, TutorVerificationDTO } from "@lths/shared";
 
-function useUnreadMessages() {
+function useUnreadMessages(enabled: boolean) {
   const { data } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => api.get<{ conversations: { unreadCount: number }[]; currentUserId: string }>("/messages"),
     staleTime: 30000,
+    enabled,
   });
   return (data?.data?.conversations ?? []).reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
 }
@@ -34,12 +36,14 @@ const MORE_ITEMS = [
 export function BottomBar() {
   const [showMore, setShowMore] = useState(false);
   const navigate = useNavigate();
-  const unreadMessages = useUnreadMessages();
+  const { isSignedIn } = useAuth();
+  const unreadMessages = useUnreadMessages(!!isSignedIn);
   const { theme, toggleTheme } = useTheme();
 
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<UserDTO>("/auth/me"),
+    enabled: !!isSignedIn,
   });
   const isAdmin = me?.data?.role === "ADMIN";
 
