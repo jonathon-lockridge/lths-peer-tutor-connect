@@ -62,6 +62,52 @@ export async function requireAuth(
   }
 }
 
+/** Like requireAuth but doesn't fail when no token is present — used for public read endpoints */
+export async function optionalAuth(
+  req: AuthRequest,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { userId: clerkUserId } = getAuth(req);
+    if (!clerkUserId) {
+      return next(); // unauthenticated — continue without req.userId
+    }
+
+    let user = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+
+    if (!user) {
+      const clerkUser = await clerk.users.getUser(clerkUserId);
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        user = await prisma.user.update({
+          where: { email },
+          data: { clerkId: clerkUserId, avatarUrl: clerkUser.imageUrl ?? existing.avatarUrl },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            clerkId: clerkUserId,
+            email,
+            firstName: clerkUser.firstName ?? "",
+            lastName: clerkUser.lastName ?? "",
+            grade: 10,
+            role: isAdminEmail(email) ? "ADMIN" : "STUDENT",
+            avatarUrl: clerkUser.imageUrl ?? null,
+          },
+        });
+      }
+    }
+
+    req.userId = user.id;
+    req.clerkUserId = clerkUserId;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function requireAdmin(
   req: AuthRequest,
   _res: Response,

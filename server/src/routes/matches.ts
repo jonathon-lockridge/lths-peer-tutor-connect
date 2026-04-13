@@ -13,7 +13,8 @@ matchesRouter.use(requireAuth);
 
 const acceptSchema = z.object({
   scheduledAt: z.string().datetime(),
-  location: z.string().min(1).max(200),
+  location: z.string().min(1).max(200).optional(),
+  sessionMode: z.enum(["PHYSICAL", "ONLINE"]).optional(),
 });
 
 const bookingSchema = z.object({
@@ -207,28 +208,39 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
 
     // For direct bookings, scheduledAt is already set; for request-based, tutor provides it
     let scheduledAt: Date;
-    let location: string;
+    let location: string | null;
+    let finalSessionMode: string;
+
     if (match.requestId) {
-      // Request-based: tutor provides time + location
+      // Request-based: tutor provides time, mode, and optionally location
       const parsed = acceptSchema.safeParse(req.body);
       if (!parsed.success) throw new AppError(400, parsed.error.errors[0].message);
       scheduledAt = new Date(parsed.data.scheduledAt);
-      location = parsed.data.location;
+      finalSessionMode = parsed.data.sessionMode ?? "ONLINE";
+      location = finalSessionMode === "PHYSICAL"
+        ? (parsed.data.location ?? "TBD")
+        : null;
     } else {
-      // Direct booking: time already set; tutor can optionally override location
+      // Direct booking: time already set; sessionMode set by student
       if (!match.scheduledAt) throw new AppError(400, "No scheduled time on this booking");
       scheduledAt = match.scheduledAt;
-      location = req.body.location ?? "TBD";
+      finalSessionMode = match.sessionMode ?? "ONLINE";
+      location = finalSessionMode === "PHYSICAL"
+        ? (req.body.location ?? "TBD")
+        : null;
     }
 
-    const roomId = `lths-${req.params.id.slice(-8)}`;
-    const meetingUrl = `https://meet.jit.si/${roomId}`;
+    // Only generate a meeting URL for online sessions
+    const meetingUrl = finalSessionMode !== "PHYSICAL"
+      ? `https://meet.jit.si/lths-${req.params.id.slice(-8)}`
+      : null;
 
     const updateData: Record<string, unknown> = {
       status: "ACCEPTED",
       scheduledAt,
       location,
       meetingUrl,
+      ...(match.requestId ? { sessionMode: finalSessionMode } : {}),
     };
 
     const updated = await prisma.match.update({ where: { id: req.params.id }, data: updateData });
@@ -243,12 +255,27 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
       hour: "numeric", minute: "2-digit",
     });
 
+    // Auto-message for in-person sessions so student knows the location
+    if (finalSessionMode === "PHYSICAL" && studentId && location) {
+      const autoMsg = [
+        `Hi! I've confirmed our ${subjectName} session.`,
+        `📍 Location: ${location}`,
+        `🗓 Time: ${scheduledStr}`,
+        `See you there!`,
+      ].join("\n");
+      await prisma.message.create({
+        data: { matchId: req.params.id, senderId: req.userId!, body: autoMsg },
+      });
+    }
+
     if (studentId) {
       await createNotification(
         studentId,
         "MATCH_ACCEPTED",
-        "Your booking was accepted!",
-        `Your ${subjectName} session is confirmed for ${scheduledStr} at ${location}.`,
+        "Your session is confirmed!",
+        location
+          ? `Your ${subjectName} session is confirmed for ${scheduledStr} at ${location}.`
+          : `Your ${subjectName} session is confirmed for ${scheduledStr}.`,
         "/sessions",
         { skipEmail: true }
       );
@@ -270,8 +297,8 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
         description: `Tutoring session between ${tutorName} and ${student?.firstName ?? "student"} for ${subjectName}.`,
         start: sessionStart,
         end: sessionEnd,
-        location,
-        meetingUrl,
+        location: location ?? "Online",
+        meetingUrl: meetingUrl ?? undefined,
         organizerEmail: `noreply@student-tutors.com`,
       });
 
@@ -279,18 +306,20 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
         await sendEmail(
           student.email,
           "Your tutoring session is confirmed!",
-          matchAcceptedEmail(student.firstName ?? "there", tutorName, subjectName, scheduledStr, location, `${appUrl}/sessions`, meetingUrl),
+          matchAcceptedEmail(student.firstName ?? "there", tutorName, subjectName, scheduledStr, location ?? "Online", `${appUrl}/sessions`, meetingUrl ?? undefined),
           [{ filename: "tutoring-session.ics", content: icsBuffer }]
         );
       }
       if (student?.phone) {
-        await sendSms(student.phone, `${tutorName} confirmed your ${subjectName} session! ${scheduledStr} at ${location}. Join: ${meetingUrl}`);
+        const smsDetails = location ? `${scheduledStr} at ${location}` : scheduledStr;
+        const smsJoin = meetingUrl ? ` Join: ${meetingUrl}` : "";
+        await sendSms(student.phone, `${tutorName} confirmed your ${subjectName} session! ${smsDetails}.${smsJoin}`);
       }
       if (tutorUser?.email) {
         await sendEmail(
           tutorUser.email,
           `Session confirmed: ${subjectName}`,
-          matchAcceptedEmail(tutorUser.firstName ?? "there", tutorName, subjectName, scheduledStr, location, `${appUrl}/sessions`, meetingUrl),
+          matchAcceptedEmail(tutorUser.firstName ?? "there", tutorName, subjectName, scheduledStr, location ?? "Online", `${appUrl}/sessions`, meetingUrl ?? undefined),
           [{ filename: "tutoring-session.ics", content: icsBuffer }]
         );
       }
@@ -335,7 +364,7 @@ matchesRouter.post("/:id/decline", async (req: AuthRequest, res: Response, next:
   }
 });
 
-// Cancel a match — student only, > 2 hours before scheduledAt
+// Cancel a match — either the student OR the tutor, > 2 hours before scheduledAt
 matchesRouter.post("/:id/cancel", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const match = await prisma.match.findUnique({
@@ -343,16 +372,18 @@ matchesRouter.post("/:id/cancel", async (req: AuthRequest, res: Response, next: 
       include: {
         request: { include: { subject: true } },
         subject: true,
-        tutor: { select: { firstName: true, lastName: true } },
+        tutor: { select: { id: true, firstName: true, lastName: true } },
       },
     });
     if (!match) throw new AppError(404, "Match not found");
 
     const studentId = getStudentId(match);
-    if (studentId !== req.userId) throw new AppError(403, "Only the student can cancel this booking");
+    const isStudent = studentId === req.userId;
+    const isTutor = match.tutorId === req.userId;
+    if (!isStudent && !isTutor) throw new AppError(403, "Not part of this session");
 
     if (!["PENDING", "ACCEPTED"].includes(match.status)) {
-      throw new AppError(400, "This booking cannot be cancelled");
+      throw new AppError(400, "This session cannot be cancelled");
     }
 
     if (match.scheduledAt) {
@@ -375,14 +406,19 @@ matchesRouter.post("/:id/cancel", async (req: AuthRequest, res: Response, next: 
     }
 
     const subjectName = match.request?.subject?.name ?? match.subject?.name ?? "tutoring";
-    const tutorName = match.tutor ? `${match.tutor.firstName} ${match.tutor.lastName}` : "your student";
-    await createNotification(
-      match.tutorId,
-      "MATCH_DECLINED",
-      "Session cancelled by student",
-      `A student cancelled their ${subjectName} booking with you.`,
-      "/sessions"
-    );
+    const cancellerLabel = isTutor ? "Tutor" : "Student";
+
+    // Notify the other party
+    const notifyId = isTutor ? studentId : match.tutorId;
+    if (notifyId) {
+      await createNotification(
+        notifyId,
+        "MATCH_DECLINED",
+        "Session cancelled",
+        `${cancellerLabel} cancelled the ${subjectName} session.`,
+        "/sessions"
+      );
+    }
 
     res.json({ success: true });
   } catch (err) {

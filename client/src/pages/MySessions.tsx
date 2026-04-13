@@ -28,9 +28,10 @@ export function MySessionsPage() {
     queryFn: () => api.get<SessionDTO[]>("/sessions"),
   });
 
+  // Fetch all matches (both as tutor and tutee) so tutors see their sessions too
   const { data: matchesData } = useQuery({
-    queryKey: ["matches", "tutee"],
-    queryFn: () => api.get<MatchDTO[]>("/matches?role=tutee"),
+    queryKey: ["matches", "all"],
+    queryFn: () => api.get<MatchDTO[]>("/matches"),
   });
 
   const { data: me } = useQuery({
@@ -42,9 +43,9 @@ export function MySessionsPage() {
     mutationFn: (matchId: string) => api.post(`/matches/${matchId}/cancel`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["matches"] });
-      toast.success("Booking cancelled.");
+      toast.success("Session cancelled.");
     },
-    onError: (e: Error) => toast.error(e.message || "Could not cancel booking"),
+    onError: (e: Error) => toast.error(e.message || "Could not cancel session"),
   });
 
   const confirmMutation = useMutation({
@@ -63,9 +64,9 @@ export function MySessionsPage() {
   const today = new Date();
   const todayStr = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Upcoming bookings: PENDING or ACCEPTED matches with a future scheduledAt
+  // Upcoming sessions: PENDING or ACCEPTED matches with a future scheduledAt
   const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
-  const upcomingBookings = allMatches.filter(
+  const upcomingSessions = allMatches.filter(
     (m) =>
       (m.status === "PENDING" || m.status === "ACCEPTED") &&
       m.scheduledAt &&
@@ -104,15 +105,20 @@ export function MySessionsPage() {
         </div>
       </div>
 
-      {/* Upcoming bookings (PENDING / ACCEPTED matches) */}
-      {upcomingBookings.length > 0 && (
+      {/* Upcoming sessions (PENDING / ACCEPTED matches) */}
+      {upcomingSessions.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Upcoming Bookings
+            Upcoming Sessions
           </h2>
           <div className="space-y-3">
-            {upcomingBookings.map((m) => {
+            {upcomingSessions.map((m) => {
               const subjectName = m.request?.subject?.name ?? m.subject?.name ?? "Session";
+              const iAmTutor = m.tutorId === currentUserId;
+              const studentUser = m.request?.requester ?? m.student ?? null;
+              const otherName = iAmTutor
+                ? `${studentUser?.firstName ?? ""} ${studentUser?.lastName ?? ""}`.trim()
+                : `${m.tutor.firstName} ${m.tutor.lastName}`;
               const canCancel = !!m.scheduledAt && new Date(m.scheduledAt) > twoHoursFromNow;
               return (
                 <div key={m.id} className="rounded-xl border bg-card p-5">
@@ -120,7 +126,7 @@ export function MySessionsPage() {
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground">{subjectName}</p>
                       <p className="text-sm text-muted-foreground">
-                        with {m.tutor.firstName} {m.tutor.lastName}
+                        with {otherName}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -150,7 +156,7 @@ export function MySessionsPage() {
                     <p className="mt-1 text-sm text-muted-foreground">📍 {m.location}</p>
                   )}
 
-                  {m.meetingUrl && m.status === "ACCEPTED" && (
+                  {m.meetingUrl && m.status === "ACCEPTED" && m.sessionMode !== "PHYSICAL" && (
                     <a
                       href={m.meetingUrl}
                       target="_blank"
@@ -172,7 +178,7 @@ export function MySessionsPage() {
                       className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
                     >
                       <X className="h-3.5 w-3.5" />
-                      Cancel Booking
+                      Cancel Session
                     </button>
                   )}
                 </div>
@@ -195,7 +201,7 @@ export function MySessionsPage() {
           onConfirm={(id, code) => confirmMutation.mutate({ id, code })}
           confirming={confirmMutation.isPending}
         />
-      ) : sessions.length === 0 && upcomingBookings.length === 0 ? (
+      ) : sessions.length === 0 && upcomingSessions.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="No sessions yet"
@@ -421,8 +427,8 @@ function SessionCard({
         </div>
       )}
 
-      {/* Meeting link */}
-      {meetingUrl && !bothConfirmed && (
+      {/* Meeting link — only for online sessions */}
+      {meetingUrl && sessionMode !== "PHYSICAL" && !bothConfirmed && (
         <a
           href={meetingUrl}
           target="_blank"

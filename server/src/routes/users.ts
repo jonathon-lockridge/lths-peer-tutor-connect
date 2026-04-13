@@ -1,12 +1,10 @@
 import { Router, Response, NextFunction } from "express";
 import { prisma } from "../utils/prisma";
-import { requireAuth, AuthRequest } from "../middleware/requireAuth";
+import { requireAuth, optionalAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { z } from "zod";
 
 export const usersRouter = Router();
-
-usersRouter.use(requireAuth);
 
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
@@ -21,8 +19,8 @@ const updateProfileSchema = z.object({
     .nullable().optional(),
 });
 
-// List tutors (with filters)
-usersRouter.get("/tutors", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// List tutors (public — optionalAuth so unauthenticated visitors can browse)
+usersRouter.get("/tutors", optionalAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { subjectId, grade, search } = req.query;
     const tutors = await prisma.user.findMany({
@@ -73,8 +71,8 @@ usersRouter.get("/tutors", async (req: AuthRequest, res: Response, next: NextFun
   }
 });
 
-// Get single user/tutor profile
-usersRouter.get("/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Get single user/tutor profile (public)
+usersRouter.get("/:id", optionalAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -115,8 +113,8 @@ usersRouter.get("/:id", async (req: AuthRequest, res: Response, next: NextFuncti
   }
 });
 
-// Update own profile
-usersRouter.patch("/me", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Update own profile (requires auth)
+usersRouter.patch("/me", requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const parsed = updateProfileSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(400, parsed.error.errors[0].message);

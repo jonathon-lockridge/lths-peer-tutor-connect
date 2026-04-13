@@ -1,5 +1,6 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/clerk-react";
 import { Star, Clock, ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
@@ -37,8 +38,18 @@ interface FullTutorProfile extends TutorProfileDTO {
 
 export function TutorProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { isSignedIn } = useAuth();
+  const navigate = useNavigate();
   const [showBook, setShowBook] = useState(false);
   const [headerImgFailed, setHeaderImgFailed] = useState(false);
+
+  function handleBook() {
+    if (!isSignedIn) {
+      navigate("/sign-in");
+      return;
+    }
+    setShowBook(true);
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["tutor", id],
@@ -49,12 +60,13 @@ export function TutorProfilePage() {
   const { data: canReviewData, refetch: refetchCanReview } = useQuery({
     queryKey: ["can-review", id],
     queryFn: () => api.get<CanReviewResponse>(`/reviews/can-review/${id}`),
-    enabled: !!id,
+    enabled: !!id && !!isSignedIn,
   });
 
   const { data: meData } = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<UserDTO>("/auth/me"),
+    enabled: !!isSignedIn,
   });
   const isAdmin = meData?.data?.role === "ADMIN";
 
@@ -133,10 +145,10 @@ export function TutorProfilePage() {
         )}
 
         <button
-          onClick={() => setShowBook(true)}
+          onClick={handleBook}
           className="mt-5 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white hover:opacity-90"
         >
-          Book a Session with {tutor.firstName}
+          {isSignedIn ? `Book a Session with ${tutor.firstName}` : "Sign In to Book a Session"}
         </button>
       </div>
 
@@ -197,7 +209,7 @@ export function TutorProfilePage() {
         )}
       </div>
 
-      {showBook && (
+      {showBook && isSignedIn && (
         <BookingModal tutor={tutor} onClose={() => setShowBook(false)} />
       )}
     </div>

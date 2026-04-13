@@ -103,6 +103,19 @@ messagesRouter.get("/:matchId", async (req: AuthRequest, res: Response, next: Ne
   }
 });
 
+// Delete own message
+messagesRouter.delete("/:messageId", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const msg = await prisma.message.findUnique({ where: { id: req.params.messageId } });
+    if (!msg) throw new AppError(404, "Message not found");
+    if (msg.senderId !== req.userId) throw new AppError(403, "Cannot delete others' messages");
+    await prisma.message.delete({ where: { id: req.params.messageId } });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Send a message
 messagesRouter.post("/:matchId", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

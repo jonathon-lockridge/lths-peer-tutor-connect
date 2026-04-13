@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Send, MessageSquare, Phone } from "lucide-react";
+import { ChevronLeft, Send, MessageSquare, Phone, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/shared/EmptyState";
 
@@ -70,6 +70,17 @@ export function MessagesPage() {
   const conversations = data?.data?.conversations ?? [];
   const currentUserId = data?.data?.currentUserId;
 
+  // Deduplicate: one entry per partner user. Server already returns by updatedAt desc,
+  // so the first match for each partner is the most recently active one.
+  const seen = new Set<string>();
+  const deduped = conversations.filter((c) => {
+    const studentUser = c.request?.requester ?? c.student;
+    const otherUser = c.tutorId === currentUserId ? studentUser : c.tutor;
+    if (!otherUser || seen.has(otherUser.id)) return false;
+    seen.add(otherUser.id);
+    return true;
+  });
+
   if (matchId) {
     return <ChatThread matchId={matchId} onBack={() => navigate("/messages")} />;
   }
@@ -87,7 +98,7 @@ export function MessagesPage() {
         <div className="space-y-2">
           {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}
         </div>
-      ) : conversations.length === 0 ? (
+      ) : deduped.length === 0 ? (
         <EmptyState
           icon={MessageSquare}
           title="No conversations yet"
@@ -95,8 +106,7 @@ export function MessagesPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card">
-          {conversations.map((c, i) => {
-            // Resolve the other party — handles both request-based and direct bookings
+          {deduped.map((c, i) => {
             const studentUser = c.request?.requester ?? c.student;
             const otherUser = c.tutorId === currentUserId ? studentUser : c.tutor;
             const subjectName = c.request?.subject?.name ?? c.subject?.name ?? "Session";
@@ -107,7 +117,7 @@ export function MessagesPage() {
                 key={c.id}
                 onClick={() => navigate(`/messages/${c.id}`)}
                 className={`flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-muted transition-colors ${
-                  i < conversations.length - 1 ? "border-b" : ""
+                  i < deduped.length - 1 ? "border-b" : ""
                 }`}
               >
                 <Avatar user={otherUser} />
@@ -157,6 +167,14 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
     mutationFn: (body: string) => api.post(`/messages/${matchId}`, { body }),
     onSuccess: () => {
       setText("");
+      qc.invalidateQueries({ queryKey: ["chat", matchId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (messageId: string) => api.delete(`/messages/${messageId}`),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat", matchId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -223,7 +241,17 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
         {messages.map((m) => {
           const isMe = m.senderId === currentUserId;
           return (
-            <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className={`group flex items-end gap-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
+              {isMe && (
+                <button
+                  onClick={() => deleteMutation.mutate(m.id)}
+                  disabled={deleteMutation.isPending}
+                  className="mb-1 shrink-0 rounded p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-red-500 disabled:opacity-30 transition-opacity"
+                  title="Delete message"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
               <div
                 className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                   isMe
@@ -231,7 +259,7 @@ function ChatThread({ matchId, onBack }: { matchId: string; onBack: () => void }
                     : "bg-muted text-foreground rounded-bl-sm"
                 }`}
               >
-                <p>{m.body}</p>
+                <p className="whitespace-pre-line">{m.body}</p>
                 <p className={`mt-0.5 text-[10px] ${isMe ? "text-white/70" : "text-muted-foreground"}`}>
                   {new Date(m.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                 </p>

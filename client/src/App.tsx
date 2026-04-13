@@ -86,15 +86,27 @@ export default function App() {
             </AuthGuard>
           }
         />
+        {/* Public browsing routes — no auth required */}
+        <Route
+          path="/"
+          element={<PageShell><HomePage /></PageShell>}
+        />
+        <Route
+          path="/find-tutor"
+          element={<PageShell><FindTutorPage /></PageShell>}
+        />
+        <Route
+          path="/tutors/:id"
+          element={<PageShell><TutorProfilePage /></PageShell>}
+        />
+
+        {/* Protected routes — require sign-in */}
         <Route
           path="/*"
           element={
             <AuthGuard>
               <PageShell>
                 <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/find-tutor" element={<FindTutorPage />} />
-                  <Route path="/tutors/:id" element={<TutorProfilePage />} />
                   <Route path="/sessions" element={<MySessionsPage />} />
                   <Route path="/hours" element={<HoursPage />} />
                   <Route path="/profile" element={<ProfilePage />} />

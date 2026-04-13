@@ -29,14 +29,6 @@ export function AnalyticsPage() {
 
   const stats = data?.data;
 
-  const sessionData = stats
-    ? [
-        { name: "Total Sessions", value: stats.totalSessions },
-        { name: "Confirmed", value: stats.confirmedSessions },
-        { name: "Open Requests", value: stats.openRequests },
-      ]
-    : [];
-
   const userBreakdown = stats
     ? [
         { name: "Tutors", value: stats.totalTutors },
@@ -144,26 +136,6 @@ export function AnalyticsPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Sessions overview bar chart */}
-      <div className="rounded-xl border bg-card p-5">
-        <h2 className="mb-4 font-semibold text-sm">Session Overview</h2>
-        {sessionData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={sessionData} margin={{ left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#1A1A1A" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-            No session data yet
-          </div>
-        )}
       </div>
 
       {!data && !isLoading && (

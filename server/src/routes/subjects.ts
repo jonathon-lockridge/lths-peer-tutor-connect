@@ -1,21 +1,19 @@
 import { Router, Response, NextFunction } from "express";
 import { prisma } from "../utils/prisma";
-import { requireAuth, requireAdmin, AuthRequest } from "../middleware/requireAuth";
+import { requireAuth, requireAdmin, optionalAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { z } from "zod";
 import { SubjectCategory } from "@prisma/client";
 
 export const subjectsRouter = Router();
 
-subjectsRouter.use(requireAuth);
-
 const createSubjectSchema = z.object({
   name: z.string().min(1).max(100),
   category: z.nativeEnum(SubjectCategory),
 });
 
-// List all subjects
-subjectsRouter.get("/", async (_req: AuthRequest, res: Response, next: NextFunction) => {
+// List all subjects (public)
+subjectsRouter.get("/", optionalAuth, async (_req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });
     res.json({ success: true, data: subjects });

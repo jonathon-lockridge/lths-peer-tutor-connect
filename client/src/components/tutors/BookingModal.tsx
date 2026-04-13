@@ -104,10 +104,10 @@ export function BookingModal({ tutor, onClose }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["matches"] });
       qc.invalidateQueries({ queryKey: ["booked", tutor.id] });
-      toast.success(`Booking request sent to ${tutor.firstName}!`);
+      toast.success(`Session request sent to ${tutor.firstName}!`);
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not send booking request"),
+    onError: (e: Error) => toast.error(e.message || "Could not send session request"),
   });
 
   const modeRequired = selectedSlot?.mode === "EITHER";
@@ -278,7 +278,7 @@ export function BookingModal({ tutor, onClose }: Props) {
             disabled={!canSubmit}
             className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
           >
-            {mutation.isPending ? "Sending..." : "Send Booking Request"}
+            {mutation.isPending ? "Sending..." : "Send Session Request"}
           </button>
         </div>
       </div>

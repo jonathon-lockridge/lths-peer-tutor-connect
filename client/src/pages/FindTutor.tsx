@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
 import { Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { TutorCard } from "@/components/tutors/TutorCard";
@@ -10,10 +12,20 @@ import { BookingModal } from "@/components/tutors/BookingModal";
 import { GroupedSubjectSelect } from "@/components/shared/GroupedSubjectSelect";
 
 export function FindTutorPage() {
+  const { isSignedIn } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
 
   const [bookTarget, setBookTarget] = useState<TutorProfileDTO | null>(null);
+
+  function handleBook(tutor: TutorProfileDTO) {
+    if (!isSignedIn) {
+      navigate("/sign-in");
+      return;
+    }
+    setBookTarget(tutor);
+  }
 
   const { data: tutors, isLoading } = useQuery({
     queryKey: ["tutors", search, subjectFilter],
@@ -99,7 +111,7 @@ export function FindTutorPage() {
             <TutorCard
               key={tutor.id}
               tutor={tutor}
-              onBook={setBookTarget}
+              onBook={handleBook}
             />
           ))}
         </div>
