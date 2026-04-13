@@ -5,7 +5,6 @@ import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
 import { sendEmail, matchAcceptedEmail, generateICS } from "../utils/email";
 import { sendSms } from "../utils/sms";
-import { createGoogleMeet } from "../utils/googleMeet";
 import { z } from "zod";
 
 export const matchesRouter = Router();
@@ -231,18 +230,13 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
         : null;
     }
 
-    const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
-    const subjectName = match.request?.subject.name ?? match.subject?.name ?? "tutoring";
-
     // Only generate a meeting URL for online sessions
     const meetingUrl = finalSessionMode !== "PHYSICAL"
-      ? await createGoogleMeet({
-          matchId: req.params.id,
-          title: `${subjectName} Tutoring Session`,
-          startTime: scheduledAt,
-          endTime: new Date(scheduledAt.getTime() + 60 * 60 * 1000),
-        })
+      ? `https://meet.jit.si/lths-${req.params.id.slice(-8)}`
       : null;
+
+    const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
+    const subjectName = match.request?.subject.name ?? match.subject?.name ?? "tutoring";
 
     const updateData: Record<string, unknown> = {
       status: "ACCEPTED",
