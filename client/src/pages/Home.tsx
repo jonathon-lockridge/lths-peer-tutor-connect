@@ -217,7 +217,7 @@ export function HomePage() {
                 rel="noopener noreferrer"
                 className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                <Video className="h-4 w-4" /> Join Google Meet
+                <Video className="h-4 w-4" /> Join Meeting
               </a>
             )}
           </div>

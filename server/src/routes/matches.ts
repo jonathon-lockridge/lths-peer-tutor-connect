@@ -5,7 +5,6 @@ import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
 import { sendEmail, matchAcceptedEmail, generateICS } from "../utils/email";
 import { sendSms } from "../utils/sms";
-import { createGoogleMeet } from "../utils/googleMeet";
 import { z } from "zod";
 
 export const matchesRouter = Router();
@@ -231,17 +230,9 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
         : null;
     }
 
-    const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
-    const subjectName = match.request?.subject.name ?? match.subject?.name ?? "tutoring";
-
     // Only generate a meeting URL for online sessions
     const meetingUrl = finalSessionMode !== "PHYSICAL"
-      ? await createGoogleMeet({
-          matchId: req.params.id,
-          title: `${subjectName} Tutoring Session`,
-          startTime: scheduledAt,
-          endTime: new Date(scheduledAt.getTime() + 60 * 60 * 1000),
-        })
+      ? `https://meet.jit.si/lths-${req.params.id.slice(-8)}`
       : null;
 
     const updateData: Record<string, unknown> = {
@@ -256,6 +247,9 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
     if (match.requestId) {
       await prisma.tutoringRequest.update({ where: { id: match.requestId }, data: { status: "IN_PROGRESS" } });
     }
+
+    const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
+    const subjectName = match.request?.subject.name ?? match.subject?.name ?? "tutoring";
     const scheduledStr = scheduledAt.toLocaleString("en-US", {
       weekday: "short", month: "short", day: "numeric",
       hour: "numeric", minute: "2-digit",
