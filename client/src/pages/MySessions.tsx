@@ -73,6 +73,19 @@ export function MySessionsPage() {
       new Date(m.scheduledAt) > today
   );
 
+  // Past accepted matches where the current user was the student — prompt for reviews
+  const pendingReviews = (() => {
+    const seenTutors = new Set<string>();
+    return allMatches.filter((m) => {
+      if (m.tutorId === currentUserId) return false; // user is the tutor, not student
+      if (m.status !== "ACCEPTED") return false;
+      if (!m.scheduledAt || new Date(m.scheduledAt) >= today) return false;
+      if (seenTutors.has(m.tutorId)) return false; // one prompt per tutor
+      seenTutors.add(m.tutorId);
+      return true;
+    });
+  })();
+
   const upcoming = sessions.filter((s) => s.date.slice(0, 10) >= todayStr);
   const past = sessions.filter((s) => s.date.slice(0, 10) < todayStr);
 
@@ -163,7 +176,7 @@ export function MySessionsPage() {
                       rel="noopener noreferrer"
                       className="mt-3 flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50"
                     >
-                      <Video className="h-4 w-4" /> Join Meeting
+                      <Video className="h-4 w-4" /> Join Google Meet
                     </a>
                   )}
 
@@ -182,6 +195,41 @@ export function MySessionsPage() {
                     </button>
                   )}
                 </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Review prompts — shown for past sessions where user is student */}
+      {pendingReviews.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Rate Your Sessions
+          </h2>
+          <div className="space-y-2">
+            {pendingReviews.map((m) => {
+              const subjectName = m.request?.subject?.name ?? m.subject?.name ?? "Session";
+              return (
+                <Link
+                  key={m.id}
+                  to={`/tutors/${m.tutorId}`}
+                  className="flex items-center justify-between rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">
+                      How was your session with {m.tutor.firstName}?
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+                      {subjectName} · {m.scheduledAt ? formatDateTime(m.scheduledAt) : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star key={i} className="h-4 w-4 text-amber-400" />
+                    ))}
+                  </div>
+                </Link>
               );
             })}
           </div>
@@ -435,7 +483,7 @@ function SessionCard({
           rel="noopener noreferrer"
           className="mt-4 flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50"
         >
-          <Video className="h-4 w-4" /> Join Meeting
+          <Video className="h-4 w-4" /> Join Google Meet
         </a>
       )}
 
