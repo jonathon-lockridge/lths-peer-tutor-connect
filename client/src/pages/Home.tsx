@@ -11,7 +11,7 @@ import { useToast } from "@/components/shared/Toast";
 
 export function HomePage() {
   const { user } = useUser();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -49,6 +49,11 @@ export function HomePage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["matches-tutor"] }); setConfirmDeclineId(null); toast.info("Request declined"); },
     onError: () => toast.error("Could not decline"),
   });
+
+  // Wait for Clerk to finish initializing before deciding which UI to show.
+  // Without this, isSignedIn is undefined for ~300ms and the public landing
+  // flashes briefly on every refresh even for signed-in users.
+  if (!isLoaded) return null;
 
   // Public landing page for unauthenticated visitors
   if (!isSignedIn) {
