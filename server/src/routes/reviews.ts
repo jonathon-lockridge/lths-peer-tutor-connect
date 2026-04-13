@@ -132,7 +132,9 @@ reviewsRouter.delete("/:id", async (req: AuthRequest, res: Response, next: NextF
     }
 
     const tutorId = review.tutorId;
-    await prisma.review.delete({ where: { id: req.params.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.review.delete({ where: { id: req.params.id } });
+    });
 
     // Re-evaluate TOP_RATED badge after deletion
     if (tutorId) {

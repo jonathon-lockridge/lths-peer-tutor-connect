@@ -152,16 +152,16 @@ export function HoursPage() {
                 >
                   {i + 1}
                 </span>
-                {entry.user.avatarUrl ? (
+                {entry.user?.avatarUrl ? (
                   <img src={entry.user.avatarUrl} className="h-8 w-8 rounded-full" alt="" />
                 ) : (
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                    {entry.user.firstName?.[0] ?? "?"}{entry.user.lastName?.[0] ?? ""}
+                    {entry.user?.firstName?.[0] ?? "?"}{entry.user?.lastName?.[0] ?? ""}
                   </div>
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{entry.user.firstName} {entry.user.lastName}</p>
-                  <p className="text-xs text-muted-foreground">Grade {entry.user.grade}</p>
+                  <p className="text-sm font-medium">{entry.user?.firstName} {entry.user?.lastName}</p>
+                  <p className="text-xs text-muted-foreground">Grade {entry.user?.grade}</p>
                 </div>
                 <p className="text-sm font-bold">{formatMinutes(entry.totalMinutes)}</p>
               </div>

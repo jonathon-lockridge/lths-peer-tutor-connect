@@ -77,6 +77,7 @@ export function MySessionsPage() {
   const pendingReviews = (() => {
     const seenTutors = new Set<string>();
     return allMatches.filter((m) => {
+      if (!currentUserId) return false; // wait for me query to resolve
       if (m.tutorId === currentUserId) return false; // user is the tutor, not student
       if (m.status !== "ACCEPTED") return false;
       if (!m.scheduledAt || new Date(m.scheduledAt) >= today) return false;
@@ -184,16 +185,17 @@ export function MySessionsPage() {
                     <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{m.note}</p>
                   )}
 
-                  {canCancel && (
+                  {m.status === "ACCEPTED" || m.status === "PENDING" ? (
                     <button
-                      onClick={() => cancelMutation.mutate(m.id)}
-                      disabled={cancelMutation.isPending}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+                      onClick={() => canCancel && cancelMutation.mutate(m.id)}
+                      disabled={!canCancel || cancelMutation.isPending}
+                      title={!canCancel ? "Cannot cancel within 2 hours of session start" : undefined}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <X className="h-3.5 w-3.5" />
                       Cancel Session
                     </button>
-                  )}
+                  ) : null}
                 </div>
               );
             })}

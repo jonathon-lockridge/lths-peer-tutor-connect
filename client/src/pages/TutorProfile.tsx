@@ -186,6 +186,13 @@ export function TutorProfilePage() {
         )}
 
         {/* Review section */}
+        {id && !isSignedIn && (
+          <div className="mt-4 border-t pt-4">
+            <p className="text-sm text-muted-foreground">
+              <Link to="/sign-in" className="text-primary underline underline-offset-2">Sign in</Link> to leave a review for {tutor.firstName}.
+            </p>
+          </div>
+        )}
         {id && canReview && (
           <div className="mt-4 border-t pt-4">
             {canReview.hasReviewed && canReview.existingReview ? (
