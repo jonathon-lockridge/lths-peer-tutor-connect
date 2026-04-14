@@ -34,8 +34,19 @@ const PORT = process.env.PORT || 3001;
 // and req.ip work correctly behind load balancers
 app.set("trust proxy", 1);
 
-// Security
-app.use(helmet());
+// Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "same-origin" },
+  })
+);
+
 const allowedOrigins = [
   "http://localhost:5173",
   "https://student-tutors.com",
@@ -55,22 +66,36 @@ app.use(
   })
 );
 
-// Rate limiting
+// Global rate limit — 100 req / 15 min per IP
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
+    message: { success: false, error: "Too many requests, please try again later." },
   })
 );
+
+// Tighter limit for state-changing endpoints — 30 mutations / 15 min per IP
+const mutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Too many requests, please try again later." },
+});
+app.use("/api/auth/onboard", mutationLimiter);
+app.use("/api/requests", mutationLimiter);
+app.use("/api/verification", mutationLimiter);
+app.use("/api/reviews", mutationLimiter);
 
 // Clerk middleware (must come before routes)
 app.use(clerkMiddleware());
 
 // Body parsing — /api/auth/webhook needs raw body for Svix signature verification
 app.use("/api/auth/webhook", express.raw({ type: "application/json" }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" })); // 10mb was too permissive for an API server
 
 // Routes
 app.use("/api/auth", authRouter);

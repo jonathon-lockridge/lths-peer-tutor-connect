@@ -67,6 +67,10 @@ hoursRouter.get("/export", async (req: AuthRequest, res: Response, next: NextFun
     if (!user || user.role !== "ADMIN") throw new AppError(403, "Admin only");
 
     const { period } = req.query;
+    // Validate period format to prevent injection: "YYYY-YYYY Fall" or "YYYY-YYYY Spring"
+    if (period !== undefined && !/^\d{4}-\d{4} (Fall|Spring)$/.test(period as string)) {
+      throw new AppError(400, "Invalid period format");
+    }
     const periodFilter = period ? { period: period as string } : {};
     const exportedAt = new Date();
 

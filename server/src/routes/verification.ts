@@ -9,12 +9,33 @@ export const verificationRouter = Router();
 
 verificationRouter.use(requireAuth);
 
+// Block SSRF: reject private/local network URLs
+function isSafeUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (!["http:", "https:"].includes(u.protocol)) return false;
+    const h = u.hostname.toLowerCase();
+    if (h === "localhost") return false;
+    if (/^127\./.test(h)) return false;
+    if (/^10\./.test(h)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return false;
+    if (/^192\.168\./.test(h)) return false;
+    if (/^169\.254\./.test(h)) return false; // link-local
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const submitSchema = z.object({
   subjectId: z.string().min(1),
   evidenceType: z.enum(["grades", "skyward", "screenshot", "other"]),
   evidenceNote: z.string().min(10).max(1000),
-  // Require actual documentary evidence — a file URL (uploaded screenshot) or an external URL
-  evidenceUrl: z.string().min(10, "Please upload a screenshot as proof."),
+  // Require a valid public HTTPS URL — blocks file://, localhost, private IPs (SSRF)
+  evidenceUrl: z
+    .string()
+    .url("Please provide a valid URL for your evidence.")
+    .refine(isSafeUrl, "Evidence URL must be a public HTTPS address."),
   gpaOrGrade: z.string().max(20).optional(),
   selfRating: z.number().int().min(1).max(5).default(3),
 });

@@ -1,7 +1,13 @@
 import { Router, Response, NextFunction } from "express";
+import { z } from "zod";
 import { BadgeType, PrismaClient } from "@prisma/client";
 import { prisma } from "../utils/prisma";
 import { requireAuth, requireAdmin, AuthRequest } from "../middleware/requireAuth";
+import { AppError } from "../middleware/errorHandler";
+
+const assignBadgeSchema = z.object({
+  badge: z.enum(["RECOMMENDED", "HIGHLY_SKILLED"]),
+});
 
 export const badgesRouter = Router();
 
@@ -23,10 +29,9 @@ badgesRouter.get("/:userId", async (req: AuthRequest, res: Response, next: NextF
 // Admin: assign RECOMMENDED or HIGHLY_SKILLED badge
 badgesRouter.post("/admin/:userId", requireAdmin, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { badge } = req.body as { badge: BadgeType };
-    if (!["RECOMMENDED", "HIGHLY_SKILLED"].includes(badge)) {
-      return res.status(400).json({ success: false, error: "Only RECOMMENDED or HIGHLY_SKILLED can be manually assigned" });
-    }
+    const parsed = assignBadgeSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, "badge must be RECOMMENDED or HIGHLY_SKILLED");
+    const { badge } = parsed.data;
     const result = await prisma.tutorBadge.upsert({
       where: { userId_badge: { userId: req.params.userId, badge } },
       update: {},

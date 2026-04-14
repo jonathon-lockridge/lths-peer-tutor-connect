@@ -47,11 +47,11 @@ notificationsRouter.post("/read-all", async (req: AuthRequest, res: Response, ne
   }
 });
 
-// Delete one notification
-notificationsRouter.delete("/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Delete all notifications for current user — must be registered before /:id
+notificationsRouter.delete("/", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await prisma.notification.deleteMany({
-      where: { id: req.params.id, userId: req.userId },
+      where: { userId: req.userId },
     });
     res.json({ success: true });
   } catch (err) {
@@ -59,11 +59,11 @@ notificationsRouter.delete("/:id", async (req: AuthRequest, res: Response, next:
   }
 });
 
-// Delete all notifications for current user
-notificationsRouter.delete("/", async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Delete one notification
+notificationsRouter.delete("/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await prisma.notification.deleteMany({
-      where: { userId: req.userId },
+      where: { id: req.params.id, userId: req.userId },
     });
     res.json({ success: true });
   } catch (err) {
