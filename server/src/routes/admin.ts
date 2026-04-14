@@ -69,8 +69,8 @@ adminRouter.get("/stats", async (_req: AuthRequest, res: Response, next: NextFun
 // List all users (paginated)
 adminRouter.get("/users", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 50;
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const limit = Math.min(200, Math.max(1, Math.floor(Number(req.query.limit) || 50)));
     const users = await prisma.user.findMany({
       skip: (page - 1) * limit,
       take: limit,

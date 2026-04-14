@@ -121,7 +121,7 @@ export function ProfilePage() {
 
   if (!user) return null;
 
-  const initials = `${user.firstName[0]}${user.lastName[0]}`;
+  const initials = `${user.firstName[0] ?? "?"}${user.lastName[0] ?? ""}`;
   const pendingVerifications = myVerifications.filter((v) => v.status !== "APPROVED");
 
   return (
