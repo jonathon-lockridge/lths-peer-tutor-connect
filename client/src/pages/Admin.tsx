@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api, getAuthToken } from "@/lib/api";
 import { TutorVerificationDTO, TutorProfileDTO } from "@lths/shared";
 import { StatCardSkeleton } from "@/components/shared/LoadingSkeletons";
 import { useToast } from "@/components/shared/Toast";
@@ -70,11 +70,27 @@ export function AdminPage() {
   const tutors = tutorsData?.data ?? [];
 
   const handleExport = async (period?: string) => {
-    const url = `${import.meta.env.VITE_API_URL ?? ""}/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `volunteer-hours${period ? `-${period}` : ""}.csv`;
-    a.click();
+    try {
+      const token = await getAuthToken();
+      const url = `${import.meta.env.VITE_API_URL ?? ""}/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error((json as any).error ?? "Export failed");
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `volunteer-hours${period ? `-${period}` : ""}.csv`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error("Export failed");
+    }
   };
 
   return (
