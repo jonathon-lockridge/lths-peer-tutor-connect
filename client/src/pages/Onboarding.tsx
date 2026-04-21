@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 
 export function OnboardingPage() {
@@ -9,9 +9,10 @@ export function OnboardingPage() {
   const [lastName, setLastName] = useState("");
   const [grade, setGrade] = useState<number | null>(null);
   const [bio, setBio] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: () => api.post("/auth/onboard", { firstName, lastName, grade, bio: bio || undefined }),
+    mutationFn: () => api.post("/auth/onboard", { firstName, lastName, grade, bio: bio || undefined, termsAccepted: true }),
     onSuccess: () => navigate("/"),
   });
 
@@ -83,13 +84,33 @@ export function OnboardingPage() {
           </div>
         </div>
 
+        <div className="flex items-start gap-2.5 pt-1">
+          <input
+            type="checkbox"
+            id="terms"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 cursor-pointer rounded border accent-primary"
+          />
+          <label htmlFor="terms" className="cursor-pointer text-sm text-muted-foreground">
+            I agree to the{" "}
+            <Link
+              to="/terms"
+              target="_blank"
+              className="text-primary underline underline-offset-2 hover:opacity-80"
+            >
+              Terms of Service
+            </Link>
+          </label>
+        </div>
+
         {mutation.isError && (
           <p className="mt-3 text-sm text-red-600">{(mutation.error as Error).message}</p>
         )}
 
         <button
           onClick={() => mutation.mutate()}
-          disabled={!firstName || !lastName || grade === null || mutation.isPending}
+          disabled={!firstName || !lastName || grade === null || !termsAccepted || mutation.isPending}
           className="mt-6 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white disabled:opacity-50 hover:opacity-90"
         >
           {mutation.isPending ? "Setting up..." : "Get Started →"}

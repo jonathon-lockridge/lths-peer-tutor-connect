@@ -10,6 +10,7 @@ import { ProfilePage } from "@/pages/Profile";
 import { AdminPage } from "@/pages/Admin";
 import { TutorProfilePage } from "@/pages/TutorProfile";
 import { OnboardingPage } from "@/pages/Onboarding";
+import { TermsPage } from "@/pages/Terms";
 import { AnalyticsPage } from "@/pages/Analytics";
 import { MessagesPage } from "@/pages/Messages";
 import { NotFoundPage } from "@/pages/NotFound";
@@ -94,6 +95,10 @@ export default function App() {
         <Route
           path="/find-tutor"
           element={<PageShell><FindTutorPage /></PageShell>}
+        />
+        <Route
+          path="/terms"
+          element={<PageShell><TermsPage /></PageShell>}
         />
         <Route
           path="/tutors/:id"

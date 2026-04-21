@@ -22,6 +22,7 @@ const onboardingSchema = z.object({
   lastName: z.string().min(1).max(50),
   grade: z.number().int().min(9).max(12),
   bio: z.string().max(500).optional(),
+  termsAccepted: z.literal(true, { errorMap: () => ({ message: "You must accept the Terms of Service to continue" }) }),
 });
 
 // Clerk webhook — sync user creates/deletes
@@ -114,7 +115,7 @@ authRouter.post("/onboard", requireAuth, async (req: AuthRequest, res: Response,
     const { firstName, lastName, grade, bio } = parsed.data;
     const user = await prisma.user.update({
       where: { id: req.userId },
-      data: { firstName, lastName, grade, bio },
+      data: { firstName, lastName, grade, bio, termsAcceptedAt: new Date() },
     });
     res.json({ success: true, data: user });
   } catch (err) {

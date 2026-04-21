@@ -90,10 +90,11 @@ model User {
   bio                  String?
   avatarUrl            String?
   phone                String?
-  isTutor              Boolean  @default(false)
-  notificationsEnabled Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  isTutor              Boolean   @default(false)
+  notificationsEnabled Boolean   @default(true)
+  termsAcceptedAt      DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   tutorSubjects         TutorSubject[]
   requestsMade          TutoringRequest[]    @relation("Requester")
