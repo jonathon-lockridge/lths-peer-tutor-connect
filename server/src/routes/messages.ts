@@ -68,12 +68,12 @@ messagesRouter.get("/:matchId", async (req: AuthRequest, res: Response, next: Ne
     const match = await prisma.match.findUnique({
       where: { id: req.params.matchId },
       include: {
-        tutor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
-        student: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
+        tutor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        student: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
         subject: true,
         request: {
           include: {
-            requester: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
+            requester: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
             subject: true,
           },
         },

@@ -110,7 +110,7 @@ requestsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
       const subjectName = subject?.name ?? "a subject";
       const tutor = await prisma.user.findUnique({
         where: { id: targetTutorId },
-        select: { email: true, phone: true, firstName: true },
+        select: { email: true, firstName: true },
       });
       const studentName = `${request.requester.firstName} ${request.requester.lastName}`;
       const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
