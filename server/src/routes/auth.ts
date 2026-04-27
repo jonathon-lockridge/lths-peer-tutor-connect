@@ -123,6 +123,19 @@ authRouter.post("/onboard", requireAuth, async (req: AuthRequest, res: Response,
   }
 });
 
+// Accept terms of service (for existing users who haven't accepted yet)
+authRouter.post("/accept-terms", requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { termsAcceptedAt: new Date() },
+    });
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Get current user
 authRouter.get("/me", requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

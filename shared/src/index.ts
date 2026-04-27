@@ -56,6 +56,7 @@ export interface UserDTO {
   phone?: string | null;
   isTutor: boolean;
   notificationsEnabled?: boolean;
+  termsAcceptedAt: string | null;
   createdAt: string;
 }
 

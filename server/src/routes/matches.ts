@@ -232,7 +232,7 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
 
     // Only generate a meeting URL for online sessions
     const meetingUrl = finalSessionMode !== "PHYSICAL"
-      ? `https://meet.jit.si/lths-${req.params.id.slice(-8)}`
+      ? `https://meet.jit.si/lths-${req.params.id.slice(-8)}?lang=en`
       : null;
 
     const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
