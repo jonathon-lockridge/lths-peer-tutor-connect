@@ -145,7 +145,7 @@ export default function App() {
                   <img src="/favicon.svg" alt="Logo" className="h-8 w-8" />
                 </div>
                 <h1 className="text-xl font-bold text-foreground">Join Peer Tutor Connect</h1>
-                <p className="mt-0.5 text-sm text-muted-foreground">Lake Travis High School — use your school email to sign up</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">Lake Travis High School — Cavaliers Helping Cavaliers</p>
               </div>
               <SignUp routing="path" path="/sign-up" afterSignUpUrl="/onboarding" />
             </div>

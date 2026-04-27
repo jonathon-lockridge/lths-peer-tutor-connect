@@ -55,12 +55,6 @@ authRouter.post("/webhook", async (req: Request, res: Response, next: NextFuncti
         image_url?: string;
       };
       const email = data.email_addresses[0]?.email_address ?? "";
-      const isSchoolEmail =
-        email.endsWith("@ltisdschools.org") || email.endsWith("@ltisdschools.net");
-      if (!isSchoolEmail) {
-        res.status(200).json({ success: true });
-        return;
-      }
       const isAdmin = isAdminEmail(email);
       await prisma.user.upsert({
         where: { clerkId: data.id },
