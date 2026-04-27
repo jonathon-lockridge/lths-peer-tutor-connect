@@ -408,7 +408,7 @@ function SessionCard({
   const needsMyConfirm = !iAmConfirmed && !bothConfirmed;
   const meetingUrl = s.match.meetingUrl;
   const myCode = iAmConfirmed && !bothConfirmed ? s.confirmCode : undefined;
-  const isPast = new Date(s.date) < new Date();
+  const isPast = s.date.slice(0, 10) < new Date().toLocaleDateString("en-CA");
 
   // Null-safe helpers for both request-based and direct bookings
   const subjectName = s.match.request?.subject?.name ?? s.match.subject?.name ?? "Session";

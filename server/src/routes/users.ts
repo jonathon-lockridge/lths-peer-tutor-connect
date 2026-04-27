@@ -11,8 +11,6 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   grade: z.number().int().min(9).max(12).optional(),
   bio: z.string().max(500).nullable().optional(),
-  phone: z.string().regex(/^[\d\s\-\+\(\)\.]{7,20}$/, "Invalid phone number format").nullable().optional(),
-  isTutor: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
   avatarUrl: z.string()
     .refine((val) => val.startsWith("data:image/") || /^https?:\/\//.test(val), "Invalid image")

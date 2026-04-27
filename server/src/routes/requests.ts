@@ -171,7 +171,7 @@ requestsRouter.patch("/:id/status", async (req: AuthRequest, res: Response, next
           "REQUEST_CANCELLED",
           "Request cancelled",
           `A student cancelled their ${(updated as any).subject.name} tutoring request.`,
-          "/my-requests"
+          "/sessions"
         );
       }
     }
