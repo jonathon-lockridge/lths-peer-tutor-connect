@@ -77,7 +77,7 @@ export function matchAcceptedEmail(studentName: string, tutorName: string, subje
         ${meetingUrl ? `<tr><td style="padding:8px;background:#f9f9f9;font-weight:600;">🎥 Meeting</td><td style="padding:8px;"><a href="${meetingUrl}" style="color:#b91c1c;">${meetingUrl}</a></td></tr>` : ""}
       </table>
       <p style="margin-top:16px;font-size:13px;color:#555;">📎 A calendar invite is attached — add it to Google Calendar, Apple Calendar, or Outlook.</p>
-      ${meetingUrl ? `<a href="${meetingUrl}" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#1a73e8;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">🎥 Join Google Meet</a>` : ""}
+      ${meetingUrl ? `<a href="${meetingUrl}" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#b91c1c;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">🎥 Join Meeting</a>` : ""}
       <a href="${appUrl}" style="display:inline-block;margin-top:12px;margin-left:${meetingUrl ? "12px" : "0"};padding:12px 24px;background:#b91c1c;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">View in App</a>
       <p style="margin-top:24px;font-size:12px;color:#888;">LTHS Peer Tutor Connect · Lake Travis High School</p>
     </div>`;

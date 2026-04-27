@@ -102,7 +102,7 @@ sessionsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
     const isTutor = match.tutorId === req.userId;
     const durationMinutes = parsed.data.actualDurationMinutes ?? scheduledDuration;
     const confirmCode = generateCode();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
     const session = await prisma.session.create({
       data: {
