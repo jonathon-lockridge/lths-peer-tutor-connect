@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { NotificationType } from "@prisma/client";
 import { sendEmail, genericEmail } from "./email";
-import { sendSms } from "./sms";
 
 const APP_URL = process.env.CLIENT_URL ?? "http://localhost:5173";
 
@@ -20,7 +19,7 @@ export async function createNotification(
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { notificationsEnabled: true, email: true, phone: true, firstName: true },
+    select: { notificationsEnabled: true, email: true, firstName: true },
   });
   if (!user) return null;
 
@@ -38,15 +37,6 @@ export async function createNotification(
   // Email — always send regardless of notificationsEnabled toggle (unless caller handles it)
   if (user.email && !opts?.skipEmail) {
     await sendEmail(user.email, title, genericEmail(name, title, body, link));
-  }
-
-  // SMS — only if they provided a phone number
-  if (user.phone) {
-    try {
-      await sendSms(user.phone, `${title}: ${body} — ${link}`);
-    } catch (e) {
-      console.error("[sms] Failed to send to", user.phone, e);
-    }
   }
 
   return notification;

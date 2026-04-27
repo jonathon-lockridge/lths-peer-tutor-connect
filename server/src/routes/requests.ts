@@ -4,7 +4,6 @@ import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
 import { sendEmail, newRequestEmail } from "../utils/email";
-import { sendSms } from "../utils/sms";
 import { z } from "zod";
 import { Urgency, RequestStatus } from "@prisma/client";
 const MAX_OPEN_REQUESTS = 5;
@@ -132,9 +131,6 @@ requestsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
           `New tutoring request: ${subjectName}`,
           newRequestEmail(tutor.firstName ?? "there", studentName, subjectName, appUrl)
         );
-      }
-      if (tutor?.phone) {
-        await sendSms(tutor.phone, `Hi ${tutor.firstName}, ${studentName} requested your help with ${subjectName}! Log in to accept: ${appUrl}`);
       }
     }
 

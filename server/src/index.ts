@@ -25,7 +25,6 @@ import { badgesRouter } from "./routes/badges";
 import { prisma } from "./utils/prisma";
 import { createNotification } from "./utils/notify";
 import { sendEmail, sessionReminderEmail } from "./utils/email";
-import { sendSms } from "./utils/sms";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -199,13 +198,11 @@ async function sendSessionReminders() {
         await sendEmail(tutor.email, "Session reminder — 1 hour away",
           sessionReminderEmail(tutor.firstName, subjectName, scheduledStr, location, `${appUrl}/sessions`));
       }
-      if (tutor?.phone) await sendSms(tutor.phone, `Reminder: Your ${subjectName} session is in ~1 hour at ${location}.`);
 
       if (studentUser?.email) {
         await sendEmail(studentUser.email, "Session reminder — 1 hour away",
           sessionReminderEmail(studentUser.firstName, subjectName, scheduledStr, location, `${appUrl}/sessions`));
       }
-      if (studentUser?.phone) await sendSms(studentUser.phone, `Reminder: Your ${subjectName} session is in ~1 hour at ${location}.`);
     }
   } catch (e) {
     console.error("Reminder job error:", e);

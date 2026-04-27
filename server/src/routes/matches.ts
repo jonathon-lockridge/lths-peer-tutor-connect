@@ -4,7 +4,6 @@ import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
 import { sendEmail, matchAcceptedEmail, generateICS } from "../utils/email";
-import { sendSms } from "../utils/sms";
 import { z } from "zod";
 
 export const matchesRouter = Router();
@@ -282,11 +281,11 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
 
       const student = await prisma.user.findUnique({
         where: { id: studentId },
-        select: { email: true, phone: true, firstName: true },
+        select: { email: true, firstName: true },
       });
       const tutorUser = await prisma.user.findUnique({
         where: { id: req.userId! },
-        select: { email: true, phone: true, firstName: true, lastName: true },
+        select: { email: true, firstName: true, lastName: true },
       });
       const tutorName = tutorUser ? `${tutorUser.firstName} ${tutorUser.lastName}` : "Your tutor";
 
@@ -309,11 +308,6 @@ matchesRouter.post("/:id/accept", async (req: AuthRequest, res: Response, next: 
           matchAcceptedEmail(student.firstName ?? "there", tutorName, subjectName, scheduledStr, location ?? "Online", `${appUrl}/sessions`, meetingUrl ?? undefined),
           [{ filename: "tutoring-session.ics", content: icsBuffer }]
         );
-      }
-      if (student?.phone) {
-        const smsDetails = location ? `${scheduledStr} at ${location}` : scheduledStr;
-        const smsJoin = meetingUrl ? ` Join: ${meetingUrl}` : "";
-        await sendSms(student.phone, `${tutorName} confirmed your ${subjectName} session! ${smsDetails}.${smsJoin}`);
       }
       if (tutorUser?.email) {
         await sendEmail(
