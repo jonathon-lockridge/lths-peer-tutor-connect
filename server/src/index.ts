@@ -85,6 +85,7 @@ const mutationLimiter = rateLimit({
   message: { success: false, error: "Too many requests, please try again later." },
 });
 app.use("/api/auth/onboard", mutationLimiter);
+app.use("/api/auth/accept-terms", mutationLimiter);
 app.use("/api/requests", mutationLimiter);
 app.use("/api/verification", mutationLimiter);
 app.use("/api/reviews", mutationLimiter);
