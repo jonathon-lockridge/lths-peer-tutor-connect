@@ -11,10 +11,19 @@ export const authRouter = Router();
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 const ADMIN_DOMAINS = ["@ltisdschools.org"];
 
+// Only LTHS accounts (plus explicit admin exceptions) may access the app
+const ALLOWED_DOMAINS = ["@ltisdschools.net", "@ltisdschools.org"];
+
 export function isAdminEmail(email: string): boolean {
   const lower = email.toLowerCase();
   if (ADMIN_EMAILS.includes(lower)) return true;
   return ADMIN_DOMAINS.some((d) => lower.endsWith(d));
+}
+
+export function isAllowedEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  if (ADMIN_EMAILS.includes(lower)) return true; // personal admin exceptions
+  return ALLOWED_DOMAINS.some((d) => lower.endsWith(d));
 }
 
 const onboardingSchema = z.object({
@@ -55,6 +64,9 @@ authRouter.post("/webhook", async (req: Request, res: Response, next: NextFuncti
         image_url?: string;
       };
       const email = data.email_addresses[0]?.email_address ?? "";
+      if (!isAllowedEmail(email)) {
+        return res.status(200).json({ success: true }); // silently ignore non-LTHS accounts
+      }
       const isAdmin = isAdminEmail(email);
       await prisma.user.upsert({
         where: { clerkId: data.id },

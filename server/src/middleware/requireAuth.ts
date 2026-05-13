@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { prisma } from "../utils/prisma";
 import { AppError } from "./errorHandler";
-import { isAdminEmail } from "../routes/auth";
+import { isAdminEmail, isAllowedEmail } from "../routes/auth";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
@@ -28,6 +28,11 @@ export async function requireAuth(
     if (!user) {
       const clerkUser = await clerk.users.getUser(clerkUserId);
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+
+      if (!isAllowedEmail(email)) {
+        throw new AppError(403, "Access restricted to Lake Travis ISD accounts.");
+      }
+
       // If a user already exists with this email (e.g. from a different Clerk instance),
       // update their clerkId rather than creating a duplicate.
       const existing = await prisma.user.findUnique({ where: { email } });
@@ -79,6 +84,11 @@ export async function optionalAuth(
     if (!user) {
       const clerkUser = await clerk.users.getUser(clerkUserId);
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+
+      if (!isAllowedEmail(email)) {
+        return next(); // non-LTHS account — treat as unauthenticated, don't create a record
+      }
+
       const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) {
         user = await prisma.user.update({
