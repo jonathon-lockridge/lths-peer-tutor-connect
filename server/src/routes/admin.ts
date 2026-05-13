@@ -84,16 +84,36 @@ adminRouter.get("/users", async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-// Flag a suspicious hour log
+// Flag a suspicious session — marks unconfirmed and reverses any credited hours
 adminRouter.post("/flag-session/:id", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const session = await prisma.session.findUnique({ where: { id: req.params.id } });
+    const session = await prisma.session.findUnique({
+      where: { id: req.params.id },
+      include: { match: { select: { tutorId: true } } },
+    });
     if (!session) throw new AppError(404, "Session not found");
-    // Mark as unconfirmed so hours aren't credited
+
+    const wasFullyConfirmed = session.tutorConfirmed && session.tuteeConfirmed;
+
     const updated = await prisma.session.update({
       where: { id: req.params.id },
       data: { tutorConfirmed: false, tuteeConfirmed: false },
     });
+
+    // Reverse the hour credit that was applied when both parties confirmed
+    if (wasFullyConfirmed) {
+      const creditMinutes = session.actualDurationMinutes ?? session.durationMinutes;
+      const sessionDate = new Date(session.date);
+      const period = sessionDate.getMonth() < 6
+        ? `${sessionDate.getFullYear() - 1}-${sessionDate.getFullYear()} Spring`
+        : `${sessionDate.getFullYear()}-${sessionDate.getFullYear() + 1} Fall`;
+
+      await prisma.volunteerHourLog.updateMany({
+        where: { userId: session.match.tutorId, period },
+        data: { totalMinutes: { decrement: creditMinutes } },
+      });
+    }
+
     res.json({ success: true, data: updated });
   } catch (err) {
     next(err);

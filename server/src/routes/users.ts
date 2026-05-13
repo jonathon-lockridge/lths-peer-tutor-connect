@@ -13,9 +13,14 @@ const updateProfileSchema = z.object({
   bio: z.string().max(500).nullable().optional(),
   notificationsEnabled: z.boolean().optional(),
   avatarUrl: z.string()
-    .refine((val) => val.startsWith("data:image/") || /^https?:\/\//.test(val), "Invalid image")
+    .refine((val) => /^https:\/\//.test(val), "Avatar must be an HTTPS URL")
     .nullable().optional(),
 });
+
+const PUBLIC_USER_SELECT = {
+  id: true, firstName: true, lastName: true, grade: true,
+  bio: true, avatarUrl: true, isTutor: true, createdAt: true,
+} as const;
 
 // List tutors (public — optionalAuth so unauthenticated visitors can browse)
 usersRouter.get("/tutors", optionalAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -37,7 +42,8 @@ usersRouter.get("/tutors", optionalAuth, async (req: AuthRequest, res: Response,
             }
           : {}),
       },
-      include: {
+      select: {
+        ...PUBLIC_USER_SELECT,
         tutorSubjects: { include: { subject: true } },
         volunteerHours: true,
         badges: true,
@@ -74,7 +80,8 @@ usersRouter.get("/:id", optionalAuth, async (req: AuthRequest, res: Response, ne
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      include: {
+      select: {
+        ...PUBLIC_USER_SELECT,
         tutorSubjects: { include: { subject: true } },
         volunteerHours: true,
         badges: true,
