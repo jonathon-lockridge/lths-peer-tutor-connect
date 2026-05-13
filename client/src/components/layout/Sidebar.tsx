@@ -51,11 +51,11 @@ export function Sidebar() {
   return (
     <div className="flex h-full flex-col border-r bg-card">
       {/* Brand + dark mode toggle */}
-      <div className="flex items-center gap-3 border-b px-4 py-5">
+      <div className="relative overflow-hidden flex items-center gap-3 border-b bg-primary/5 px-4 py-5">
         <img src="/favicon.svg" alt="Logo" className="h-9 w-9 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-foreground leading-tight">Peer Tutor Connect</p>
-          <p className="text-xs text-muted-foreground">Cavaliers Helping Cavaliers</p>
+          <p className="text-sm font-extrabold text-foreground leading-tight">Peer Tutor Connect</p>
+          <p className="text-[11px] text-primary font-semibold">Cavaliers Helping Cavaliers</p>
         </div>
         <button
           onClick={toggleTheme}
@@ -67,7 +67,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-0.5 px-3 py-4">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
@@ -75,14 +75,14 @@ export function Sidebar() {
             end={end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )
             }
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" />
             {label}
           </NavLink>
         ))}
@@ -91,14 +91,14 @@ export function Sidebar() {
             to="/admin"
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )
             }
           >
-            <ShieldCheck className="h-4 w-4" />
+            <ShieldCheck className="h-4 w-4 shrink-0" />
             Admin
             {pendingCount > 0 && (
               <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
@@ -110,7 +110,7 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="flex items-center gap-3 border-t px-4 py-4">
+      <div className="flex items-center gap-3 border-t bg-muted/30 px-4 py-4">
         <UserButton afterSignOutUrl="/sign-in" />
         <NotificationBell />
       </div>

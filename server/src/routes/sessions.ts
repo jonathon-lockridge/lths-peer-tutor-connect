@@ -3,6 +3,7 @@ import { prisma } from "../utils/prisma";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notify";
+import { sendEmail, sessionNotesEmail } from "../utils/email";
 import { checkAndAwardTopRated } from "./badges";
 import { z } from "zod";
 const MIN_SESSION_MINUTES = 15;
@@ -233,6 +234,33 @@ sessionsRouter.post("/:id/confirm", async (req: AuthRequest, res: Response, next
           "Your session has been confirmed. Please leave a rating for your tutor — it only takes a second.",
           `/tutors/${match.tutorId}`
         );
+      }
+
+      // Email student the tutor's session notes if any were provided
+      if (updated.notes && studentId) {
+        const student = await prisma.user.findUnique({
+          where: { id: studentId },
+          select: { email: true, firstName: true },
+        });
+        const tutorUser = await prisma.user.findUnique({
+          where: { id: match.tutorId },
+          select: { firstName: true, lastName: true },
+        });
+        const subjectName = match.request?.subject?.name ?? match.subject?.name ?? "your session";
+        const appUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
+        if (student?.email) {
+          await sendEmail(
+            student.email,
+            `Session notes from ${tutorUser?.firstName ?? "your tutor"} — ${subjectName}`,
+            sessionNotesEmail(
+              student.firstName ?? "there",
+              tutorUser ? `${tutorUser.firstName} ${tutorUser.lastName}` : "your tutor",
+              subjectName,
+              updated.notes,
+              `${appUrl}/sessions`
+            )
+          );
+        }
       }
 
       // Check if tutor earned TOP_RATED badge

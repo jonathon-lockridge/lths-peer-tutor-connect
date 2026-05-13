@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Video, KeyRound, Star, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, List, CalendarDays, ChevronLeft, ChevronRight, Video, KeyRound, Star, X, RefreshCw, ClipboardList, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { SessionDTO, UserDTO, MatchDTO } from "@lths/shared";
-import { formatDate, formatDateTime, formatMinutes } from "@/lib/utils";
+import { SessionDTO, UserDTO, MatchDTO, TutorAvailabilityDTO } from "@lths/shared";
+import { formatDate, formatDateTime, formatMinutes, fmt12 } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 
 type View = "list" | "calendar";
@@ -49,6 +49,20 @@ export function MySessionsPage() {
   });
 
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [reschedulingMatch, setReschedulingMatch] = useState<MatchDTO | null>(null);
+  const [loggingMatch, setLoggingMatch] = useState<MatchDTO | null>(null);
+  const [showCancelAllConfirm, setShowCancelAllConfirm] = useState(false);
+
+  const cancelAllMutation = useMutation({
+    mutationFn: () => api.post("/matches/cancel-all", {}),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["matches"] });
+      const count = res?.data?.count ?? 0;
+      toast.success(count > 0 ? `Cancelled ${count} upcoming session${count !== 1 ? "s" : ""}.` : "No sessions to cancel.");
+      setShowCancelAllConfirm(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not cancel all sessions"),
+  });
   const confirmMutation = useMutation({
     mutationFn: ({ id, code }: { id: string; code?: string }) => {
       setConfirmingId(id);
@@ -75,6 +89,16 @@ export function MySessionsPage() {
       (m.status === "PENDING" || m.status === "ACCEPTED") &&
       m.scheduledAt &&
       new Date(m.scheduledAt) > today
+  );
+
+  // Past ACCEPTED matches that haven't been logged as sessions yet
+  const loggedMatchIds = new Set(sessions.map((s) => s.matchId));
+  const needsLogging = allMatches.filter(
+    (m) =>
+      m.status === "ACCEPTED" &&
+      m.scheduledAt &&
+      new Date(m.scheduledAt) <= today &&
+      !loggedMatchIds.has(m.id)
   );
 
   // Past accepted matches where the current user was the student — prompt for reviews
@@ -135,9 +159,20 @@ export function MySessionsPage() {
       {/* Upcoming sessions (PENDING / ACCEPTED matches) */}
       {upcomingSessions.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Upcoming Sessions
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Upcoming Sessions
+            </h2>
+            {me?.data?.isTutor && upcomingSessions.some((m) => m.tutorId === currentUserId) && (
+              <button
+                onClick={() => setShowCancelAllConfirm(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Cancel All
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             {upcomingSessions.map((m) => {
               const subjectName = m.request?.subject?.name ?? m.subject?.name ?? "Session";
@@ -199,16 +234,67 @@ export function MySessionsPage() {
                   )}
 
                   {m.status === "ACCEPTED" || m.status === "PENDING" ? (
-                    <button
-                      onClick={() => canCancel && cancelMutation.mutate(m.id)}
-                      disabled={!canCancel || cancelMutation.isPending}
-                      title={!canCancel ? "Cannot cancel within 2 hours of session start" : undefined}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Cancel Session
-                    </button>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => canCancel && setReschedulingMatch(m)}
+                        disabled={!canCancel}
+                        title={!canCancel ? "Cannot reschedule within 2 hours of session start" : undefined}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-300 dark:border-blue-800 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={() => canCancel && cancelMutation.mutate(m.id)}
+                        disabled={!canCancel || cancelMutation.isPending}
+                        title={!canCancel ? "Cannot cancel within 2 hours of session start" : undefined}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancel
+                      </button>
+                    </div>
                   ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Log Session prompts — ACCEPTED past matches with no session logged yet */}
+      {needsLogging.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Sessions to Log
+          </h2>
+          <div className="space-y-2">
+            {needsLogging.map((m) => {
+              const subjectName = m.request?.subject?.name ?? m.subject?.name ?? "Session";
+              const iAmTutor = m.tutorId === currentUserId;
+              const otherName = iAmTutor
+                ? (() => { const s = m.request?.requester ?? m.student; return s ? `${s.firstName} ${s.lastName}` : ""; })()
+                : `${m.tutor.firstName} ${m.tutor.lastName}`;
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-violet-900 dark:text-violet-300">
+                      {subjectName} with {otherName}
+                    </p>
+                    <p className="text-xs text-violet-700 dark:text-violet-500 mt-0.5">
+                      {m.scheduledAt ? formatDateTime(m.scheduledAt) : ""} · Log to credit your hours
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setLoggingMatch(m)}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 dark:bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Log Session
+                  </button>
                 </div>
               );
             })}
@@ -279,6 +365,49 @@ export function MySessionsPage() {
           confirmingId={confirmingId}
         />
       ) : null}
+
+      {reschedulingMatch && (
+        <RescheduleModal
+          match={reschedulingMatch}
+          onClose={() => setReschedulingMatch(null)}
+        />
+      )}
+
+      {loggingMatch && (
+        <LogSessionModal
+          match={loggingMatch}
+          onClose={() => setLoggingMatch(null)}
+        />
+      )}
+
+      {showCancelAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <div className="mb-1 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-500" />
+              <h3 className="font-semibold text-foreground">Cancel all upcoming sessions?</h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This will cancel all of your PENDING and ACCEPTED sessions scheduled more than 2 hours from now. Students will be notified and their requests will reopen.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => cancelAllMutation.mutate()}
+                disabled={cancelAllMutation.isPending}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white disabled:opacity-50 hover:bg-red-700"
+              >
+                {cancelAllMutation.isPending ? "Cancelling…" : "Yes, Cancel All"}
+              </button>
+              <button
+                onClick={() => setShowCancelAllConfirm(false)}
+                className="flex-1 rounded-lg border py-2.5 text-sm font-medium hover:bg-muted"
+              >
+                Keep Sessions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -571,6 +700,351 @@ function SessionCard({
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Log Session Modal ─────────────────────────────────────────────────────────
+function LogSessionModal({ match, onClose }: { match: MatchDTO; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+
+  const scheduledDate = match.scheduledAt ? new Date(match.scheduledAt) : new Date();
+  const defaultDate = scheduledDate.toLocaleDateString("en-CA"); // YYYY-MM-DD
+  const defaultStart = scheduledDate.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  // Default end = 1 hour after start
+  const defaultEnd = new Date(scheduledDate.getTime() + 60 * 60 * 1000)
+    .toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+
+  const [date, setDate] = useState(defaultDate);
+  const [startTime, setStartTime] = useState(defaultStart);
+  const [endTime, setEndTime] = useState(defaultEnd);
+  const [notes, setNotes] = useState("");
+
+  const subjectName = match.request?.subject?.name ?? match.subject?.name ?? "Session";
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!date || !startTime || !endTime) throw new Error("Fill in all required fields");
+      if (startTime >= endTime) throw new Error("End time must be after start time");
+      // Build full ISO datetimes for startTime/endTime from the date + time inputs
+      const startISO = new Date(`${date}T${startTime}:00`).toISOString();
+      const endISO = new Date(`${date}T${endTime}:00`).toISOString();
+      return api.post("/sessions", {
+        matchId: match.id,
+        date,
+        startTime: startISO,
+        endTime: endISO,
+        notes: notes.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+      qc.invalidateQueries({ queryKey: ["matches"] });
+      toast.success("Session logged! Share the confirmation code with the other person.");
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not log session"),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Log Session</h2>
+            <p className="text-sm text-muted-foreground">{subjectName}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              max={new Date().toLocaleDateString("en-CA")}
+              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Start time</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">End time</label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Session notes{" "}
+              <span className="font-normal text-muted-foreground">(optional — emailed to the student once confirmed)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="What did you cover? Any follow-up topics or homework suggestions..."
+              className="w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {mutation.isError && (
+          <p className="mt-3 text-sm text-red-600">{(mutation.error as Error).message}</p>
+        )}
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          You'll receive a 4-digit code to share with the other person for confirmation. Hours are credited once both parties confirm.
+        </p>
+
+        <div className="mt-4 flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-lg border py-2.5 text-sm font-medium hover:bg-muted">
+            Cancel
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !date || startTime >= endTime}
+            className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+          >
+            {mutation.isPending ? "Logging…" : "Log Session"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reschedule Modal ──────────────────────────────────────────────────────────
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function getNextSevenDays(): Date[] {
+  const days: Date[] = [];
+  const base = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+function RescheduleModal({ match, onClose }: { match: MatchDTO; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const tutorId = match.tutorId;
+
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<TutorAvailabilityDTO | null>(null);
+  const [sessionMode, setSessionMode] = useState<"PHYSICAL" | "ONLINE" | null>(
+    (match.sessionMode as "PHYSICAL" | "ONLINE" | null) ?? null
+  );
+
+  const { data: availabilityData } = useQuery({
+    queryKey: ["availability", tutorId],
+    queryFn: () => api.get<TutorAvailabilityDTO[]>(`/availability/${tutorId}`),
+  });
+  const availability = availabilityData?.data ?? [];
+
+  const { data: bookedData } = useQuery({
+    queryKey: ["booked", tutorId],
+    queryFn: () => api.get<string[]>(`/matches/booked/${tutorId}`),
+    enabled: !!tutorId,
+  });
+  const bookedTimes = new Set(
+    (bookedData?.data ?? [])
+      .filter((t) => new Date(t).toISOString() !== (match.scheduledAt ? new Date(match.scheduledAt).toISOString() : ""))
+      .map((t) => new Date(t).toISOString())
+  );
+
+  const days = getNextSevenDays();
+  const availableDayOfWeeks = new Set(availability.map((s) => s.dayOfWeek));
+  const slotsForDay = selectedDate ? availability.filter((s) => s.dayOfWeek === selectedDate.getDay()) : [];
+
+  function isSlotTaken(slot: TutorAvailabilityDTO, date: Date): boolean {
+    const d = new Date(date);
+    const [h, m] = slot.startTime.split(":").map(Number);
+    d.setHours(h, m, 0, 0);
+    return bookedTimes.has(d.toISOString());
+  }
+
+  function handleSlotSelect(slot: TutorAvailabilityDTO) {
+    setSelectedSlot(slot);
+    if (slot.mode !== "EITHER") setSessionMode(slot.mode as "PHYSICAL" | "ONLINE");
+    else setSessionMode(null);
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!selectedDate || !selectedSlot) throw new Error("Pick a date and time slot");
+      if (isSlotTaken(selectedSlot, selectedDate)) throw new Error("This slot is already taken");
+      const d = new Date(selectedDate);
+      const [h, m] = selectedSlot.startTime.split(":").map(Number);
+      d.setHours(h, m, 0, 0);
+      return api.patch(`/matches/${match.id}/reschedule`, { scheduledAt: d.toISOString() });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matches"] });
+      qc.invalidateQueries({ queryKey: ["booked", tutorId] });
+      toast.success("Session rescheduled!");
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not reschedule session"),
+  });
+
+  const modeRequired = selectedSlot?.mode === "EITHER";
+  const canSubmit =
+    !!selectedDate &&
+    !!selectedSlot &&
+    !isSlotTaken(selectedSlot, selectedDate) &&
+    (!modeRequired || !!sessionMode) &&
+    !mutation.isPending;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Reschedule Session</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Date picker */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Pick a new date</label>
+            {availability.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Loading availability…</p>
+            ) : (
+              <div className="grid grid-cols-7 gap-1">
+                {days.map((d) => {
+                  const dow = d.getDay();
+                  const hasSlots = availableDayOfWeeks.has(dow);
+                  const isSelected = selectedDate?.toDateString() === d.toDateString();
+                  return (
+                    <button
+                      key={d.toDateString()}
+                      disabled={!hasSlots}
+                      onClick={() => { setSelectedDate(d); setSelectedSlot(null); setSessionMode(null); }}
+                      className={`flex flex-col items-center rounded-lg py-2 text-xs transition-colors ${
+                        isSelected
+                          ? "bg-primary text-white"
+                          : hasSlots
+                          ? "border hover:bg-muted"
+                          : "cursor-not-allowed text-muted-foreground/40"
+                      }`}
+                    >
+                      <span className="font-medium">{DAY_NAMES_SHORT[dow]}</span>
+                      <span>{d.getDate()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Time slot picker */}
+          {selectedDate && slotsForDay.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Available times on {DAY_NAMES_FULL[selectedDate.getDay()]}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {slotsForDay.map((slot) => {
+                  const taken = isSlotTaken(slot, selectedDate);
+                  const isSelected = selectedSlot?.id === slot.id;
+                  return (
+                    <button
+                      key={slot.id}
+                      onClick={() => !taken && handleSlotSelect(slot)}
+                      disabled={taken}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        taken
+                          ? "cursor-not-allowed border-dashed bg-muted/30 text-muted-foreground/50 line-through"
+                          : isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      {fmt12(slot.startTime)} – {fmt12(slot.endTime)}
+                      {taken && <span className="ml-1 text-xs">(taken)</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Mode picker — only for EITHER slots */}
+          {selectedSlot?.mode === "EITHER" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                How would you like to meet? <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSessionMode("PHYSICAL")}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                    sessionMode === "PHYSICAL" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+                  }`}
+                >
+                  📍 In-Person
+                </button>
+                <button
+                  onClick={() => setSessionMode("ONLINE")}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                    sessionMode === "ONLINE" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+                  }`}
+                >
+                  💻 Online
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {mutation.isError && (
+          <p className="mt-3 text-sm text-red-600">{(mutation.error as Error).message}</p>
+        )}
+
+        <div className="mt-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-lg border py-2.5 text-sm font-medium hover:bg-muted">
+            Cancel
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit}
+            className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+          >
+            {mutation.isPending ? "Rescheduling…" : "Confirm Reschedule"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

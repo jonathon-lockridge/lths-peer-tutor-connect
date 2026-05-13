@@ -47,6 +47,8 @@ export function BookingModal({ tutor, onClose }: Props) {
   const [selectedSlot, setSelectedSlot] = useState<TutorAvailabilityDTO | null>(null);
   const [sessionMode, setSessionMode] = useState<"PHYSICAL" | "ONLINE" | null>(null);
   const [note, setNote] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringWeeks, setRecurringWeeks] = useState(4);
 
   const { data: availabilityData } = useQuery({
     queryKey: ["availability", tutor.id],
@@ -93,18 +95,25 @@ export function BookingModal({ tutor, onClose }: Props) {
       const [h, m] = selectedSlot.startTime.split(":").map(Number);
       d.setHours(h, m, 0, 0);
       const effectiveMode = selectedSlot.mode === "EITHER" ? sessionMode : selectedSlot.mode;
-      return api.post("/matches", {
+      return api.post<{ match: unknown; count: number }>("/matches", {
         tutorId: tutor.id,
         subjectId,
         scheduledAt: d.toISOString(),
         note: note.trim() || undefined,
         sessionMode: effectiveMode,
+        isRecurring: isRecurring || undefined,
+        recurringWeeks: isRecurring ? recurringWeeks : undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const count = res?.data?.count ?? 1;
       qc.invalidateQueries({ queryKey: ["matches"] });
       qc.invalidateQueries({ queryKey: ["booked", tutor.id] });
-      toast.success(`Session request sent to ${tutor.firstName}!`);
+      toast.success(
+        count > 1
+          ? `${count} session requests sent to ${tutor.firstName}!`
+          : `Session request sent to ${tutor.firstName}!`
+      );
       onClose();
     },
     onError: (e: Error) => toast.error(e.message || "Could not send session request"),
@@ -259,6 +268,40 @@ export function BookingModal({ tutor, onClose }: Props) {
               placeholder="Give your tutor a heads-up about what you're working on..."
               className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary resize-none bg-background"
             />
+          </div>
+
+          {/* Recurring toggle */}
+          <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-3">
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="h-4 w-4 rounded accent-primary"
+              />
+              <span className="text-sm font-medium">Repeat weekly</span>
+            </label>
+            {isRecurring && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-muted-foreground shrink-0">Repeat for</label>
+                  <select
+                    value={recurringWeeks}
+                    onChange={(e) => setRecurringWeeks(Number(e.target.value))}
+                    className="rounded-lg border px-3 py-1.5 text-sm bg-background outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                      <option key={n} value={n}>{n} weeks</option>
+                    ))}
+                  </select>
+                </div>
+                {selectedDate && (
+                  <p className="text-xs text-muted-foreground">
+                    Creates up to {recurringWeeks} session requests, one per week — weeks without tutor availability are skipped.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

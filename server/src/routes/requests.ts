@@ -99,6 +99,29 @@ requestsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
       include: { requester: true, subject: true },
     });
 
+    // If no specific tutor, notify all tutors who teach this subject (in-app only, no email)
+    if (!targetTutorId) {
+      const matchingTutors = await prisma.tutorSubject.findMany({
+        where: { subjectId, user: { isTutor: true } },
+        select: { userId: true },
+        take: 30,
+      });
+      const subjectRecord = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
+      const subjectName = subjectRecord?.name ?? "a subject";
+      const requesterName = `${request.requester.firstName} ${request.requester.lastName}`;
+
+      for (const { userId } of matchingTutors) {
+        if (userId === req.userId) continue;
+        await createNotification(
+          userId,
+          "NEW_REQUEST",
+          "New tutoring request",
+          `${requesterName} needs help with ${subjectName}. View and respond to the request.`,
+          "/"
+        );
+      }
+    }
+
     // If a specific tutor was targeted, auto-create a pending match
     if (targetTutorId) {
       await prisma.match.create({

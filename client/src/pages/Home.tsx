@@ -58,64 +58,84 @@ export function HomePage() {
   // Public landing page for unauthenticated visitors
   if (!isSignedIn) {
     return (
-      <div className="space-y-8">
-        <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-10 text-white">
-          <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute -bottom-6 right-10 h-24 w-24 rounded-full bg-white/5" />
+      <div className="space-y-6">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-12 text-white">
+          {/* layered background shapes */}
+          <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/5" />
+          <div className="pointer-events-none absolute -bottom-8 right-6 h-36 w-36 rounded-full bg-white/5" />
+          <div className="pointer-events-none absolute left-1/2 bottom-0 h-20 w-40 rounded-full bg-white/[0.03]" />
           <div className="relative">
-            <h1 className="text-2xl font-bold">Peer Tutor Connect</h1>
-            <p className="mt-1 text-white/80 text-sm">Cavaliers Helping Cavaliers · Lake Travis High School</p>
-            <p className="mt-3 text-white/70 text-sm max-w-sm">
-              Connect with fellow students who can help you succeed. Free peer tutoring, flexible scheduling, and real volunteer hours.
+            <span className="inline-block rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest mb-3">
+              Lake Travis High School
+            </span>
+            <h1 className="text-3xl font-extrabold leading-tight">Peer Tutor Connect</h1>
+            <p className="mt-1 text-white/80 text-sm font-medium">Cavaliers Helping Cavaliers</p>
+            <p className="mt-3 text-white/70 text-sm max-w-xs leading-relaxed">
+              Free peer tutoring, flexible scheduling, and verified volunteer hours — all in one place.
             </p>
             <div className="mt-6 flex gap-3 flex-wrap">
               <Link
+                to="/sign-up"
+                className="rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-sm transition-opacity hover:opacity-90"
+              >
+                Get Started Free
+              </Link>
+              <Link
                 to="/find-tutor"
-                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+                className="rounded-lg border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/20"
               >
                 Browse Tutors
-              </Link>
-              <Link
-                to="/sign-in"
-                className="rounded-lg border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/sign-up"
-                className="rounded-lg border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-              >
-                Create Account
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* Feature cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
-            { emoji: "📚", title: "Browse Tutors", desc: "Find peers who excel in your subject." },
-            { emoji: "📅", title: "Flexible Scheduling", desc: "Book sessions that fit your schedule." },
-            { emoji: "⭐", title: "Earn Hours", desc: "Tutors earn volunteer hours for their time." },
+            { emoji: "📚", title: "Subject Experts", desc: "Find peers who aced the class you need help with.", color: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900" },
+            { emoji: "📅", title: "Flexible Booking", desc: "Pick a time that works — in-person or online.", color: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" },
+            { emoji: "🏆", title: "Verified Hours", desc: "Tutors earn official volunteer hours for NHS and transcripts.", color: "bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" },
           ].map((f) => (
-            <div key={f.title} className="rounded-xl border bg-card p-5 text-center">
-              <p className="text-3xl mb-2">{f.emoji}</p>
-              <p className="font-semibold text-sm">{f.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">{f.desc}</p>
+            <div key={f.title} className={`rounded-xl border p-5 ${f.color}`}>
+              <p className="text-3xl mb-2.5">{f.emoji}</p>
+              <p className="font-semibold text-sm text-foreground">{f.title}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
 
-        <div className="rounded-xl border bg-card p-6 text-center">
-          <h3 className="font-semibold text-foreground">Ready to get started?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create a free account to book sessions and track your progress.
-          </p>
-          <Link
-            to="/sign-up"
-            className="mt-4 inline-block rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-white hover:opacity-90"
-          >
-            Join for Free
-          </Link>
+        {/* How it works */}
+        <div className="rounded-xl border bg-card p-6">
+          <h3 className="font-semibold text-foreground mb-4">How it works</h3>
+          <ol className="space-y-3">
+            {[
+              { n: "1", text: "Sign in with your LTISD school email" },
+              { n: "2", text: "Browse tutors by subject or post an open request" },
+              { n: "3", text: "Book a session — the tutor confirms the time" },
+              { n: "4", text: "Both parties confirm attendance with a code; hours are credited automatically" },
+            ].map((s) => (
+              <li key={s.n} className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{s.n}</span>
+                <span className="text-sm text-muted-foreground leading-relaxed">{s.text}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-5 flex gap-3">
+            <Link
+              to="/sign-up"
+              className="flex-1 rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-white hover:opacity-90"
+            >
+              Create Account
+            </Link>
+            <Link
+              to="/sign-in"
+              className="flex-1 rounded-lg border py-2.5 text-center text-sm font-semibold hover:bg-muted"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -153,21 +173,22 @@ export function HomePage() {
     <div className="space-y-8">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-8 text-white">
-        <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-6 right-10 h-24 w-24 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -right-12 -top-12 h-52 w-52 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-8 right-8 h-32 w-32 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute left-1/3 -bottom-4 h-16 w-32 rounded-full bg-white/[0.03]" />
         <div className="relative">
-          <h1 className="text-2xl font-bold">Hey, {firstName}! 👋</h1>
-          <p className="mt-1 text-white/80 text-sm">Cavaliers Helping Cavaliers</p>
-          <div className="mt-5 flex gap-3">
+          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Cavaliers Helping Cavaliers</p>
+          <h1 className="text-2xl font-extrabold">Hey, {firstName}! 👋</h1>
+          <div className="mt-4 flex gap-3">
             <Link
               to="/find-tutor"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-primary shadow-sm transition-opacity hover:opacity-90"
             >
               Find a Tutor
             </Link>
             <Link
               to="/sessions"
-              className="rounded-lg border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              className="rounded-lg border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
             >
               My Sessions
             </Link>
@@ -230,19 +251,23 @@ export function HomePage() {
           <><StatCardSkeleton /><StatCardSkeleton /></>
         ) : (
           <>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
-                <Clock className="h-3.5 w-3.5" />
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <p className="text-xs font-medium text-muted-foreground">Volunteer Hours</p>
               </div>
-              <p className="text-xl font-bold text-foreground">{formatMinutes(totalMinutes)}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Hours</p>
+              <p className="text-2xl font-extrabold text-foreground">{formatMinutes(totalMinutes)}</p>
             </div>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1.5">
-                <Calendar className="h-3.5 w-3.5" />
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <p className="text-xs font-medium text-muted-foreground">Upcoming</p>
               </div>
-              <p className="text-xl font-bold text-foreground">{upcomingMatches.length}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Upcoming</p>
+              <p className="text-2xl font-extrabold text-foreground">{upcomingMatches.length}</p>
             </div>
           </>
         )}
@@ -351,20 +376,23 @@ export function HomePage() {
 
       {/* Become a Tutor CTA */}
       {!isTutor && (
-        <div className="rounded-xl border bg-card p-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950/40">
-            <Star className="h-6 w-6 text-yellow-500" />
+        <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border-amber-200 dark:border-amber-900 p-6">
+          <div className="pointer-events-none absolute right-3 top-3 text-5xl opacity-20 select-none">🏆</div>
+          <div className="relative">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950/60">
+              <Star className="h-5 w-5 text-yellow-500" />
+            </div>
+            <h3 className="font-bold text-foreground">Become a Tutor</h3>
+            <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+              Share your knowledge, earn verified volunteer hours, and strengthen your college application.
+            </p>
+            <Link
+              to="/profile?apply=true"
+              className="mt-4 inline-block rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+            >
+              Apply to Tutor →
+            </Link>
           </div>
-          <h3 className="font-semibold text-foreground">Become a Tutor</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Share your knowledge, earn volunteer hours, and build your transcript.
-          </p>
-          <Link
-            to="/profile?apply=true"
-            className="mt-4 inline-block rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
-          >
-            Apply to Tutor
-          </Link>
         </div>
       )}
     </div>

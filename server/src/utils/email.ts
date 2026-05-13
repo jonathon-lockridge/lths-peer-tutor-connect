@@ -100,6 +100,20 @@ export function sessionReminderEmail(name: string, subjectName: string, schedule
     </div>`;
 }
 
+export function sessionNotesEmail(studentName: string, tutorName: string, subjectName: string, notes: string, appUrl: string) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
+      <h2 style="color:#b91c1c;">📝 Session Notes from Your Tutor</h2>
+      <p>Hi ${studentName},</p>
+      <p>Your <strong>${subjectName}</strong> session with <strong>${tutorName}</strong> has been confirmed. Here are the notes your tutor left for you:</p>
+      <div style="margin:16px 0;padding:16px;background:#f9f9f9;border-left:4px solid #b91c1c;border-radius:4px;font-size:14px;line-height:1.6;white-space:pre-wrap;">${notes}</div>
+      <a href="${appUrl}" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#b91c1c;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">
+        View Session
+      </a>
+      <p style="margin-top:24px;font-size:12px;color:#888;">LTHS Peer Tutor Connect · Lake Travis High School</p>
+    </div>`;
+}
+
 export function genericEmail(name: string, title: string, body: string, appUrl: string) {
   return `
     <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">

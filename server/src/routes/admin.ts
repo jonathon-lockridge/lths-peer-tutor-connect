@@ -1,5 +1,4 @@
 import { Router, Response, NextFunction } from "express";
-import { z } from "zod";
 import { prisma } from "../utils/prisma";
 import { requireAuth, requireAdmin, AuthRequest } from "../middleware/requireAuth";
 import { AppError } from "../middleware/errorHandler";
@@ -131,6 +130,20 @@ adminRouter.post("/users/:id/promote", async (req: AuthRequest, res: Response, n
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { role: "ADMIN" },
+    });
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Demote admin to student
+adminRouter.post("/users/:id/demote", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (req.params.id === req.userId) throw new AppError(400, "You cannot demote yourself.");
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { role: "STUDENT" },
     });
     res.json({ success: true, data: user });
   } catch (err) {

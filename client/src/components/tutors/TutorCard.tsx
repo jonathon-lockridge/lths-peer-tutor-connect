@@ -9,20 +9,20 @@ interface TutorCardProps {
 }
 
 const CATEGORY_COLORS: Record<SubjectCategory, string> = {
-  MATH: "bg-blue-100 text-blue-800",
-  SCIENCE: "bg-green-100 text-green-800",
-  ENGLISH: "bg-purple-100 text-purple-800",
-  HISTORY: "bg-amber-100 text-amber-800",
-  WORLD_LANGUAGE: "bg-pink-100 text-pink-800",
-  ELECTIVE: "bg-teal-100 text-teal-800",
-  AP: "bg-red-100 text-red-800",
+  MATH: "bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300",
+  SCIENCE: "bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300",
+  ENGLISH: "bg-purple-100 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300",
+  HISTORY: "bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300",
+  WORLD_LANGUAGE: "bg-pink-100 dark:bg-pink-950/50 text-pink-800 dark:text-pink-300",
+  ELECTIVE: "bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300",
+  AP: "bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300",
   OTHER: "bg-muted text-muted-foreground",
 };
 
 const BADGE_STYLES: Record<BadgeType, { label: string; className: string }> = {
-  TOP_RATED: { label: "Top Rated", className: "bg-yellow-100 text-yellow-800 border border-yellow-300" },
-  RECOMMENDED: { label: "Recommended", className: "bg-blue-100 text-blue-800 border border-blue-300" },
-  HIGHLY_SKILLED: { label: "Highly Skilled", className: "bg-green-100 text-green-800 border border-green-300" },
+  TOP_RATED: { label: "Top Rated", className: "bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700" },
+  RECOMMENDED: { label: "Recommended", className: "bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700" },
+  HIGHLY_SKILLED: { label: "Highly Skilled", className: "bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700" },
 };
 
 export function TutorCard({ tutor, onBook }: TutorCardProps) {

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserButton } from "@clerk/clerk-react";
 import { useRef, useState, useEffect } from "react";
-import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Plus, Trash2 } from "lucide-react";
+import { Bell, BellOff, CheckCircle2, Clock, XCircle, MessageSquare, Upload, FileImage, X, GraduationCap, ChevronRight, Camera, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { fmt12 } from "@/lib/utils";
@@ -351,28 +351,45 @@ export function ProfilePage() {
 
 // ── Tutor Availability Section ────────────────────────────────────────────────
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const MODE_OPTIONS: { value: TutoringMode; label: string; icon: string }[] = [
-  { value: "PHYSICAL", label: "In-Person Only", icon: "📍" },
-  { value: "ONLINE", label: "Online Only", icon: "💻" },
+  { value: "PHYSICAL", label: "In-Person", icon: "📍" },
+  { value: "ONLINE", label: "Online", icon: "💻" },
   { value: "EITHER", label: "Either", icon: "↕️" },
 ];
 
-const MODE_BADGE: Record<TutoringMode, string> = {
-  PHYSICAL: "In-Person",
-  ONLINE: "Online",
-  EITHER: "Either",
+const MODE_COLORS: Record<TutoringMode, string> = {
+  PHYSICAL: "bg-blue-500/80 dark:bg-blue-600/70 border-blue-600 dark:border-blue-500",
+  ONLINE: "bg-green-500/80 dark:bg-green-600/70 border-green-600 dark:border-green-500",
+  EITHER: "bg-primary/70 border-primary",
 };
+
+// Hours to show: 7 AM through 9 PM (inclusive start, 30-min rows)
+const GRID_START_HOUR = 7;
+const GRID_END_HOUR = 21; // 9 PM, exclusive end
+const SLOT_DURATION_HOURS = 1; // default 1-hour slots on click
+const ROW_COUNT = (GRID_END_HOUR - GRID_START_HOUR) * 2; // 30-min rows
+
+function rowToHHMM(row: number): string {
+  const totalMinutes = GRID_START_HOUR * 60 + row * 30;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function hhmmToRow(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h * 60 + m - GRID_START_HOUR * 60) / 30;
+}
 
 function AvailabilitySection({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [showAdd, setShowAdd] = useState(false);
-  const [day, setDay] = useState(1);
-  const [startTime, setStartTime] = useState("15:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [mode, setMode] = useState<TutoringMode>("EITHER");
+  const [newMode, setNewMode] = useState<TutoringMode>("EITHER");
+  // pending click: { dayOfWeek, startTime } waiting for end-time selection
+  const [pendingStart, setPendingStart] = useState<{ day: number; startRow: number } | null>(null);
 
   const { data, refetch } = useQuery({
     queryKey: ["availability", userId],
@@ -380,11 +397,11 @@ function AvailabilitySection({ userId }: { userId: string }) {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => api.post("/availability", { dayOfWeek: day, startTime, endTime, mode }),
+    mutationFn: (payload: { dayOfWeek: number; startTime: string; endTime: string; mode: TutoringMode }) =>
+      api.post("/availability", payload),
     onSuccess: () => {
       refetch();
-      setShowAdd(false);
-      setMode("EITHER");
+      qc.invalidateQueries({ queryKey: ["availability", userId] });
       toast.success("Slot added!");
     },
     onError: (e: Error) => toast.error(e.message || "Could not add slot"),
@@ -400,127 +417,172 @@ function AvailabilitySection({ userId }: { userId: string }) {
   });
 
   const slots = data?.data ?? [];
-  const byDay: Record<number, TutorAvailabilityDTO[]> = {};
-  for (const s of slots) {
-    if (!byDay[s.dayOfWeek]) byDay[s.dayOfWeek] = [];
-    byDay[s.dayOfWeek].push(s);
+
+  // Map: `${dayOfWeek}-${row}` → slot occupying that cell
+  const cellToSlot: Record<string, TutorAvailabilityDTO> = {};
+  for (const slot of slots) {
+    const startRow = hhmmToRow(slot.startTime);
+    const endRow = hhmmToRow(slot.endTime);
+    for (let r = startRow; r < endRow; r++) {
+      cellToSlot[`${slot.dayOfWeek}-${r}`] = slot;
+    }
+  }
+
+  function handleCellClick(day: number, row: number) {
+    const key = `${day}-${row}`;
+    const existing = cellToSlot[key];
+
+    if (existing) {
+      // Delete existing slot
+      deleteMutation.mutate(existing.id);
+      return;
+    }
+
+    if (!pendingStart) {
+      // First click: mark start
+      setPendingStart({ day, startRow: row });
+    } else if (pendingStart.day !== day) {
+      // Different day — reset
+      setPendingStart({ day, startRow: row });
+    } else if (row <= pendingStart.startRow) {
+      // Clicked before or at start — reset
+      setPendingStart({ day, startRow: row });
+    } else {
+      // Second click in same day and after start — create slot
+      const startTime = rowToHHMM(pendingStart.startRow);
+      const endTime = rowToHHMM(row); // end = clicked row (not inclusive)
+      addMutation.mutate({ dayOfWeek: day, startTime, endTime, mode: newMode });
+      setPendingStart(null);
+    }
+  }
+
+  function isPending(day: number, row: number) {
+    if (!pendingStart || pendingStart.day !== day) return false;
+    return row >= pendingStart.startRow;
   }
 
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold">My Availability</h3>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <Plus className="h-4 w-4" /> Add Slot
-        </button>
+        {pendingStart && (
+          <button
+            onClick={() => setPendingStart(null)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <X className="h-3 w-3" /> Cancel selection
+          </button>
+        )}
       </div>
 
-      {showAdd && (
-        <div className="mb-4 space-y-3 rounded-lg border bg-muted/30 p-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium">Day</label>
-              <select
-                value={day}
-                onChange={(e) => setDay(Number(e.target.value))}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-              >
-                {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Start</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">End</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium">Session type</label>
-            <div className="flex gap-2">
-              {MODE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setMode(opt.value)}
-                  className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
-                    mode === opt.value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "bg-background text-muted-foreground hover:border-primary"
-                  }`}
-                >
-                  {opt.icon} {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2">
+      {/* Mode selector */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">New slots as:</span>
+        <div className="flex gap-1.5">
+          {MODE_OPTIONS.map((opt) => (
             <button
-              onClick={() => addMutation.mutate()}
-              disabled={addMutation.isPending || !startTime || !endTime || startTime >= endTime}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+              key={opt.value}
+              onClick={() => setNewMode(opt.value)}
+              className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                newMode === opt.value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:border-primary"
+              }`}
             >
-              {addMutation.isPending ? "Adding…" : "Add"}
+              {opt.icon} {opt.label}
             </button>
-            <button
-              onClick={() => setShowAdd(false)}
-              className="rounded-lg border px-4 py-2 text-sm hover:bg-muted"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {slots.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No availability set. Add slots so students can book sessions with you.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {[0, 1, 2, 3, 4, 5, 6].filter((d) => byDay[d]?.length).map((d) => (
-            <div key={d}>
-              <p className="mb-1 text-xs font-semibold text-muted-foreground">{DAY_NAMES[d]}</p>
-              <div className="space-y-1">
-                {byDay[d].map((slot) => (
-                  <div
-                    key={slot.id}
-                    className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{fmt12(slot.startTime)} – {fmt12(slot.endTime)}</span>
-                      <span className="text-xs text-muted-foreground">{MODE_BADGE[slot.mode ?? "EITHER"]}</span>
-                    </div>
-                    <button
-                      onClick={() => deleteMutation.mutate(slot.id)}
-                      disabled={deleteMutation.isPending}
-                      className="text-muted-foreground transition-colors hover:text-red-500 disabled:opacity-50"
-                      title="Remove slot"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* Instruction hint */}
+      <p className="mb-3 text-xs text-muted-foreground">
+        {pendingStart
+          ? `Click an end-time cell on ${DAY_NAMES_FULL[pendingStart.day]} to finish the slot.`
+          : "Click a cell to start a slot, click again to set the end time. Click an existing slot to remove it."}
+      </p>
+
+      {/* Weekly grid */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[420px]">
+          {/* Day headers */}
+          <div className="mb-1 grid" style={{ gridTemplateColumns: "3rem repeat(7, 1fr)" }}>
+            <div />
+            {DAY_NAMES.map((d) => (
+              <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-1">{d}</div>
+            ))}
+          </div>
+
+          {/* Time rows */}
+          <div className="grid" style={{ gridTemplateColumns: "3rem repeat(7, 1fr)" }}>
+            {Array.from({ length: ROW_COUNT }, (_, row) => {
+              const hhmm = rowToHHMM(row);
+              const isHour = hhmm.endsWith(":00");
+              return (
+                <>
+                  {/* Time label — only on full hours */}
+                  <div
+                    key={`label-${row}`}
+                    className="flex items-start justify-end pr-1.5 text-[10px] text-muted-foreground/60"
+                    style={{ height: "18px" }}
+                  >
+                    {isHour ? fmt12(hhmm) : ""}
+                  </div>
+                  {/* Day cells */}
+                  {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                    const key = `${day}-${row}`;
+                    const slot = cellToSlot[key];
+                    const isFirst = slot && hhmmToRow(slot.startTime) === row;
+                    const pending = isPending(day, row);
+                    const isPendingStart = pendingStart?.day === day && pendingStart?.startRow === row;
+
+                    return (
+                      <div
+                        key={`cell-${day}-${row}`}
+                        onClick={() => handleCellClick(day, row)}
+                        title={slot ? `${fmt12(slot.startTime)}–${fmt12(slot.endTime)} (click to delete)` : `${DAY_NAMES_FULL[day]} ${fmt12(hhmm)} — click to start`}
+                        className={`relative cursor-pointer border-b border-r text-[9px] transition-colors ${
+                          isHour ? "border-t border-muted" : "border-muted/40"
+                        } ${
+                          slot
+                            ? `${MODE_COLORS[slot.mode ?? "EITHER"]} text-white`
+                            : pending
+                            ? "bg-primary/25 dark:bg-primary/20"
+                            : isPendingStart
+                            ? "bg-primary/40"
+                            : "hover:bg-muted/60"
+                        }`}
+                        style={{ height: "18px" }}
+                      >
+                        {isFirst && slot && (
+                          <span className="absolute left-0.5 top-0 leading-none truncate max-w-full font-medium text-white/90">
+                            {MODE_OPTIONS.find((o) => o.value === slot.mode)?.icon}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {MODE_OPTIONS.map((opt) => (
+          <span key={opt.value} className="flex items-center gap-1">
+            <span className={`inline-block h-2.5 w-4 rounded-sm border ${MODE_COLORS[opt.value]}`} />
+            {opt.icon} {opt.label}
+          </span>
+        ))}
+        {slots.length > 0 && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            {slots.length} slot{slots.length !== 1 ? "s" : ""} set
+          </span>
+        )}
+      </div>
     </div>
   );
 }

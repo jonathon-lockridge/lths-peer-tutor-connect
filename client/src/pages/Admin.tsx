@@ -1,10 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare, Trash2 } from "lucide-react";
+import { ShieldCheck, Users, Clock, BookOpen, TrendingUp, Download, CheckCircle2, XCircle, ChevronDown, ChevronUp, MessageSquare, Trash2, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { api, getAuthToken } from "@/lib/api";
-import { TutorVerificationDTO } from "@lths/shared";
+import { TutorVerificationDTO, UserDTO } from "@lths/shared";
 import { StatCardSkeleton } from "@/components/shared/LoadingSkeletons";
 import { useToast } from "@/components/shared/Toast";
+
+interface AdminUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  grade?: number | null;
+}
 
 interface FeedbackEntry {
   id: string;
@@ -24,9 +33,32 @@ interface AdminStats {
   topSubjects: { subjectId: string; subjectName: string; count: number }[];
 }
 
+/** Generate the last N semester period strings, most-recent first */
+function getPastPeriods(count = 6): string[] {
+  const periods: string[] = [];
+  const now = new Date();
+  let year = now.getFullYear();
+  let isFall = now.getMonth() >= 6; // Jun-Dec = Fall
+  for (let i = 0; i < count; i++) {
+    if (isFall) {
+      periods.push(`${year}-${year + 1} Fall`);
+      isFall = false;
+    } else {
+      periods.push(`${year - 1}-${year} Spring`);
+      year--;
+      isFall = true;
+    }
+  }
+  return periods;
+}
+
 export function AdminPage() {
   const qc = useQueryClient();
   const toast = useToast();
+  const [exportPeriod, setExportPeriod] = useState<string>("__all__");
+  // Must be declared before any early returns to satisfy Rules of Hooks
+  const [isExporting, setIsExporting] = useState(false);
+  const pastPeriods = getPastPeriods(6);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-stats"],
@@ -46,6 +78,19 @@ export function AdminPage() {
     enabled: !error,
   });
 
+  const { data: adminUsersData } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: () => api.get<{ users: AdminUser[] }>("/admin/users?limit=200"),
+    enabled: !error,
+    select: (res) => (res.data?.users ?? []).filter((u) => u.role === "ADMIN"),
+  });
+
+  const { data: meData } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.get<UserDTO>("/auth/me"),
+    enabled: !error,
+  });
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -61,8 +106,12 @@ export function AdminPage() {
   const stats = data?.data;
   const pending = pendingData?.data ?? [];
   const feedbackList = feedbackData?.data ?? [];
+  const adminUsers = adminUsersData ?? [];
+  const currentUserId = meData?.data?.id;
 
-  const handleExport = async (period?: string) => {
+  const handleExport = async () => {
+    const period = exportPeriod === "__all__" ? undefined : exportPeriod;
+    setIsExporting(true);
     try {
       const token = await getAuthToken();
       const url = `${import.meta.env.VITE_API_URL ?? ""}/api/hours/export${period ? `?period=${encodeURIComponent(period)}` : ""}`;
@@ -74,15 +123,22 @@ export function AdminPage() {
         toast.error((json as any).error ?? "Export failed");
         return;
       }
+      // Use server's Content-Disposition filename when available
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? `LTHS-PeerTutorConnect-VolunteerHours${period ? `-${period.replace(/\s+/g, "-")}` : ""}.csv`;
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `volunteer-hours${period ? `-${period}` : ""}.csv`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(blobUrl);
+      toast.success("Export downloaded!");
     } catch {
       toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -177,27 +233,57 @@ export function AdminPage() {
 
       {/* Export */}
       <div className="rounded-xl border bg-card p-5">
-        <h2 className="mb-3 font-semibold">Export Volunteer Hours</h2>
+        <h2 className="mb-1 font-semibold">Export Volunteer Hours</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Download a CSV of all logged volunteer hours. This will mark records as exported.
+          Download a formatted CSV report for NHS, club hours, or school records. Marks records as exported.
         </p>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Semester</label>
+            <select
+              value={exportPeriod}
+              onChange={(e) => setExportPeriod(e.target.value)}
+              className="rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="__all__">All Time</option>
+              {pastPeriods.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
           <button
-            onClick={() => handleExport()}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
-            Export All Hours
-          </button>
-          <button
-            onClick={() => handleExport(`${new Date().getFullYear() - (new Date().getMonth() < 6 ? 1 : 0)}-${new Date().getFullYear() + (new Date().getMonth() < 6 ? 0 : 1)} ${new Date().getMonth() < 6 ? "Spring" : "Fall"}`)}
-            className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-muted"
-          >
-            <Download className="h-4 w-4" />
-            Export Current Semester
+            {isExporting ? "Exporting…" : "Download CSV"}
           </button>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          The report includes tutor summary, session detail, and totals — formatted for school submission.
+        </p>
       </div>
+      {/* Admin Users — demote management */}
+      {adminUsers.length > 0 && (
+        <div className="rounded-xl border bg-card p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <UserMinus className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Admin Users ({adminUsers.length})</h2>
+          </div>
+          <div className="space-y-2">
+            {adminUsers.map((u) => (
+              <AdminUserRow
+                key={u.id}
+                user={u}
+                isSelf={u.id === currentUserId}
+                onDemoted={() => qc.invalidateQueries({ queryKey: ["admin-users"] })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* App Feedback */}
       {feedbackList.length > 0 && (
         <div className="rounded-xl border bg-card p-5">
@@ -214,6 +300,59 @@ export function AdminPage() {
               />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin User Row (demote) ──────────────────────────────────────────────────
+
+function AdminUserRow({ user, isSelf, onDemoted }: { user: AdminUser; isSelf: boolean; onDemoted: () => void }) {
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+
+  const demoteMutation = useMutation({
+    mutationFn: () => api.post(`/admin/users/${user.id}/demote`, {}),
+    onSuccess: () => { toast.success(`${user.firstName} ${user.lastName} demoted to Student.`); onDemoted(); setConfirming(false); },
+    onError: (e: Error) => toast.error(e.message || "Failed to demote"),
+  });
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+      <div>
+        <p className="text-sm font-medium">
+          {user.firstName} {user.lastName}
+          {isSelf && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">You</span>}
+        </p>
+        <p className="text-xs text-muted-foreground">{user.email}</p>
+      </div>
+      {isSelf ? (
+        <span className="text-xs text-muted-foreground italic">Cannot demote self</span>
+      ) : !confirming ? (
+        <button
+          onClick={() => setConfirming(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+        >
+          <UserMinus className="h-3.5 w-3.5" />
+          Demote
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Are you sure?</span>
+          <button
+            onClick={() => demoteMutation.mutate()}
+            disabled={demoteMutation.isPending}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 hover:bg-red-700"
+          >
+            {demoteMutation.isPending ? "…" : "Yes"}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>
