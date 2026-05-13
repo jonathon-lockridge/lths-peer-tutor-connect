@@ -86,6 +86,14 @@ sessionsRouter.post("/", async (req: AuthRequest, res: Response, next: NextFunct
     if (!isParty) throw new AppError(403, "Forbidden");
     if (match.status !== "ACCEPTED") throw new AppError(400, "Match must be ACCEPTED to log a session");
 
+    // Prevent duplicate sessions for the same match on the same date
+    const existingSession = await prisma.session.findFirst({
+      where: { matchId: parsed.data.matchId, date: new Date(parsed.data.date) },
+    });
+    if (existingSession) {
+      throw new AppError(409, "A session for this match on that date has already been logged.");
+    }
+
     const todayStr = new Date().toLocaleDateString("en-CA");
     if (parsed.data.date > todayStr) {
       throw new AppError(400, "Session date must be today or in the past.");

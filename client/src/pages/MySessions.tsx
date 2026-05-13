@@ -48,14 +48,18 @@ export function MySessionsPage() {
     onError: (e: Error) => toast.error(e.message || "Could not cancel session"),
   });
 
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const confirmMutation = useMutation({
-    mutationFn: ({ id, code }: { id: string; code?: string }) =>
-      api.post(`/sessions/${id}/confirm`, { code }),
+    mutationFn: ({ id, code }: { id: string; code?: string }) => {
+      setConfirmingId(id);
+      return api.post(`/sessions/${id}/confirm`, { code });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sessions"] });
       toast.success("Session confirmed! Hours will be credited once both parties confirm.");
     },
     onError: (e: Error) => toast.error(e.message || "Could not confirm session"),
+    onSettled: () => setConfirmingId(null),
   });
 
   const sessions = data?.data ?? [];
@@ -74,14 +78,23 @@ export function MySessionsPage() {
   );
 
   // Past accepted matches where the current user was the student — prompt for reviews
+  // Fetch which tutors the user has already reviewed so we don't show a stale prompt
+  const reviewedTutorIds = useQuery({
+    queryKey: ["my-reviews"],
+    queryFn: () => api.get<{ tutorId: string }[]>("/reviews/mine"),
+    enabled: !!currentUserId,
+  });
+  const alreadyReviewedIds = new Set((reviewedTutorIds.data?.data ?? []).map((r) => r.tutorId));
+
   const pendingReviews = (() => {
     const seenTutors = new Set<string>();
     return allMatches.filter((m) => {
-      if (!currentUserId) return false; // wait for me query to resolve
-      if (m.tutorId === currentUserId) return false; // user is the tutor, not student
+      if (!currentUserId) return false;
+      if (m.tutorId === currentUserId) return false;
       if (m.status !== "ACCEPTED") return false;
       if (!m.scheduledAt || new Date(m.scheduledAt) >= today) return false;
-      if (seenTutors.has(m.tutorId)) return false; // one prompt per tutor
+      if (alreadyReviewedIds.has(m.tutorId)) return false; // already reviewed this tutor
+      if (seenTutors.has(m.tutorId)) return false;
       seenTutors.add(m.tutorId);
       return true;
     });
@@ -249,7 +262,7 @@ export function MySessionsPage() {
           sessions={sessions}
           currentUserId={currentUserId}
           onConfirm={(id, code) => confirmMutation.mutate({ id, code })}
-          confirming={confirmMutation.isPending}
+          confirmingId={confirmingId}
         />
       ) : sessions.length === 0 && upcomingSessions.length === 0 ? (
         <EmptyState
@@ -263,7 +276,7 @@ export function MySessionsPage() {
           past={past}
           currentUserId={currentUserId}
           onConfirm={(id, code) => confirmMutation.mutate({ id, code })}
-          confirming={confirmMutation.isPending}
+          confirmingId={confirmingId}
         />
       ) : null}
     </div>
@@ -275,12 +288,12 @@ function MonthCalendar({
   sessions,
   currentUserId,
   onConfirm,
-  confirming,
+  confirmingId,
 }: {
   sessions: SessionDTO[];
   currentUserId?: string;
   onConfirm: (id: string, code?: string) => void;
-  confirming: boolean;
+  confirmingId: string | null;
 }) {
   const today = new Date();
   const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -371,7 +384,7 @@ function MonthCalendar({
           ) : (
             <div className="space-y-3">
               {selectedSessions.map((s) => (
-                <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirming={confirming} />
+                <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirmingId={confirmingId} />
               ))}
             </div>
           )}
@@ -392,12 +405,12 @@ function SessionCard({
   s,
   currentUserId,
   onConfirm,
-  confirming,
+  confirmingId,
 }: {
   s: SessionDTO;
   currentUserId?: string;
   onConfirm: (id: string, code?: string) => void;
-  confirming: boolean;
+  confirmingId: string | null;
 }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [confirmCode, setConfirmCode] = useState("");
@@ -523,10 +536,10 @@ function SessionCard({
                 />
                 <button
                   onClick={() => { onConfirm(s.id, confirmCode); }}
-                  disabled={confirmCode.length !== 4 || confirming}
+                  disabled={confirmCode.length !== 4 || confirmingId === s.id}
                   className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
                 >
-                  {confirming ? "Confirming…" : "Confirm"}
+                  {confirmingId === s.id ? "Confirming…" : "Confirm"}
                 </button>
                 <button onClick={() => setShowCodeInput(false)} className="rounded-lg border px-3 py-2 text-sm hover:bg-muted">
                   Cancel
@@ -568,13 +581,13 @@ function ListView({
   past,
   currentUserId,
   onConfirm,
-  confirming,
+  confirmingId,
 }: {
   upcoming: SessionDTO[];
   past: SessionDTO[];
   currentUserId?: string;
   onConfirm: (id: string, code?: string) => void;
-  confirming: boolean;
+  confirmingId: string | null;
 }) {
   return (
     <div className="space-y-6">
@@ -585,7 +598,7 @@ function ListView({
           </h2>
           <div className="space-y-3">
             {upcoming.map((s) => (
-              <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirming={confirming} />
+              <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirmingId={confirmingId} />
             ))}
           </div>
         </section>
@@ -597,7 +610,7 @@ function ListView({
           </h2>
           <div className="space-y-3">
             {past.map((s) => (
-              <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirming={confirming} />
+              <SessionCard key={s.id} s={s} currentUserId={currentUserId} onConfirm={onConfirm} confirmingId={confirmingId} />
             ))}
           </div>
         </section>

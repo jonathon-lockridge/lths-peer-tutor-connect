@@ -108,10 +108,15 @@ adminRouter.post("/flag-session/:id", async (req: AuthRequest, res: Response, ne
         ? `${sessionDate.getFullYear() - 1}-${sessionDate.getFullYear()} Spring`
         : `${sessionDate.getFullYear()}-${sessionDate.getFullYear() + 1} Fall`;
 
-      await prisma.volunteerHourLog.updateMany({
-        where: { userId: session.match.tutorId, period },
-        data: { totalMinutes: { decrement: creditMinutes } },
+      const log = await prisma.volunteerHourLog.findUnique({
+        where: { userId_period: { userId: session.match.tutorId, period } },
       });
+      if (log) {
+        await prisma.volunteerHourLog.update({
+          where: { userId_period: { userId: session.match.tutorId, period } },
+          data: { totalMinutes: Math.max(0, log.totalMinutes - creditMinutes) },
+        });
+      }
     }
 
     res.json({ success: true, data: updated });

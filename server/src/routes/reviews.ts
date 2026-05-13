@@ -15,6 +15,19 @@ const createSchema = z.object({
   comment: z.string().max(300).optional(),
 });
 
+// List reviews written by the current user (used to suppress already-reviewed prompts)
+reviewsRouter.get("/mine", async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const reviews = await prisma.review.findMany({
+      where: { reviewerId: req.userId },
+      select: { tutorId: true },
+    });
+    res.json({ success: true, data: reviews });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // List reviews for a tutor
 reviewsRouter.get("/tutor/:tutorId", async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
