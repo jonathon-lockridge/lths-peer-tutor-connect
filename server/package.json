@@ -15,6 +15,7 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1045.0",
     "@clerk/express": "^1.0.0",
     "@prisma/client": "^5.10.0",
     "@types/multer": "^2.1.0",

@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import path from "path";
+import fs from "fs";
 import { rateLimit } from "express-rate-limit";
 import { clerkMiddleware } from "@clerk/express";
 import { errorHandler } from "./middleware/errorHandler";
+import { requireAuth, AuthRequest } from "./middleware/requireAuth";
 import { authRouter } from "./routes/auth";
 import { usersRouter } from "./routes/users";
 import { subjectsRouter } from "./routes/subjects";
@@ -115,7 +117,29 @@ app.use("/api/feedback", feedbackRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/availability", availabilityRouter);
 app.use("/api/badges", badgesRouter);
-app.use("/api/uploads", express.static(path.join(__dirname, "../uploads")));
+// Serve uploaded files — requires authentication so files aren't world-accessible.
+// In production with S3 configured, files are served directly from R2/S3 and this
+// route only handles any files that exist locally (e.g. dev uploads).
+app.use("/api/uploads", requireAuth, (req: AuthRequest, res: express.Response) => {
+  // path.basename strips any directory components, preventing path traversal attacks
+  const filename = path.basename(req.path);
+  if (!filename || filename === ".") {
+    res.status(400).json({ success: false, error: "Invalid filename" });
+    return;
+  }
+  const filepath = path.resolve(path.join(__dirname, "../uploads", filename));
+  // Double-check the resolved path is still inside the uploads directory
+  const uploadDir = path.resolve(path.join(__dirname, "../uploads"));
+  if (!filepath.startsWith(uploadDir + path.sep)) {
+    res.status(400).json({ success: false, error: "Invalid filename" });
+    return;
+  }
+  if (!fs.existsSync(filepath)) {
+    res.status(404).json({ success: false, error: "File not found" });
+    return;
+  }
+  res.sendFile(filepath);
+});
 
 // Health check
 app.get("/health", (_req, res) => {
