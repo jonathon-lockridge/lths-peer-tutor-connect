@@ -51,11 +51,11 @@ export function Sidebar() {
   return (
     <div className="flex h-full flex-col border-r bg-card">
       {/* Brand + dark mode toggle */}
-      <div className="relative overflow-hidden flex items-center gap-3 border-b bg-primary/5 px-4 py-5">
+      <div className="flex items-center gap-3 border-b px-4 py-5">
         <img src="/favicon.svg" alt="Logo" className="h-9 w-9 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-extrabold text-foreground leading-tight">Peer Tutor Connect</p>
-          <p className="text-[11px] text-primary font-semibold">Cavaliers Helping Cavaliers</p>
+          <p className="text-[11px] text-muted-foreground">Cavaliers Helping Cavaliers</p>
         </div>
         <button
           onClick={toggleTheme}

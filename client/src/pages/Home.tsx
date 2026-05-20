@@ -376,9 +376,8 @@ export function HomePage() {
 
       {/* Become a Tutor CTA */}
       {!isTutor && (
-        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card p-6">
-          <div className="pointer-events-none absolute right-3 top-3 text-5xl opacity-20 select-none">🏆</div>
-          <div className="relative">
+        <div className="rounded-xl border border-primary/20 bg-card p-6">
+          <div>
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Star className="h-5 w-5 text-primary" />
             </div>
