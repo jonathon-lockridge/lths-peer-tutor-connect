@@ -278,19 +278,19 @@ export function MySessionsPage() {
               return (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30 px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-violet-900 dark:text-violet-300">
+                    <p className="text-sm font-semibold text-teal-900 dark:text-teal-300">
                       {subjectName} with {otherName}
                     </p>
-                    <p className="text-xs text-violet-700 dark:text-violet-500 mt-0.5">
+                    <p className="text-xs text-teal-700 dark:text-teal-400 mt-0.5">
                       {m.scheduledAt ? formatDateTime(m.scheduledAt) : ""} · Log to credit your hours
                     </p>
                   </div>
                   <button
                     onClick={() => setLoggingMatch(m)}
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 dark:bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 dark:bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
                     Log Session

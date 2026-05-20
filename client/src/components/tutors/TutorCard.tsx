@@ -11,7 +11,7 @@ interface TutorCardProps {
 const CATEGORY_COLORS: Record<SubjectCategory, string> = {
   MATH: "bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300",
   SCIENCE: "bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300",
-  ENGLISH: "bg-purple-100 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300",
+  ENGLISH: "bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300",
   HISTORY: "bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300",
   WORLD_LANGUAGE: "bg-pink-100 dark:bg-pink-950/50 text-pink-800 dark:text-pink-300",
   ELECTIVE: "bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300",
