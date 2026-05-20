@@ -96,7 +96,7 @@ export function HomePage() {
           {[
             { emoji: "📚", title: "Subject Experts", desc: "Find peers who aced the class you need help with.", color: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900" },
             { emoji: "📅", title: "Flexible Booking", desc: "Pick a time that works — in-person or online.", color: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" },
-            { emoji: "🏆", title: "Verified Hours", desc: "Tutors earn official volunteer hours for NHS and transcripts.", color: "bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" },
+            { emoji: "🏆", title: "Verified Hours", desc: "Tutors earn official volunteer hours for NHS and transcripts.", color: "bg-card" },
           ].map((f) => (
             <div key={f.title} className={`rounded-xl border p-5 ${f.color}`}>
               <p className="text-3xl mb-2.5">{f.emoji}</p>
@@ -376,11 +376,11 @@ export function HomePage() {
 
       {/* Become a Tutor CTA */}
       {!isTutor && (
-        <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border-amber-200 dark:border-amber-900 p-6">
+        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card p-6">
           <div className="pointer-events-none absolute right-3 top-3 text-5xl opacity-20 select-none">🏆</div>
           <div className="relative">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950/60">
-              <Star className="h-5 w-5 text-yellow-500" />
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Star className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-bold text-foreground">Become a Tutor</h3>
             <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
